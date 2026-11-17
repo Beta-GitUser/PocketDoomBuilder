@@ -46,10 +46,12 @@ workstation cannot run a local NDK build at all. The APK is therefore built by
   | `run_host_tests` | compile + run the host unit tests and the shell preview first (default `true`) |
   | `upload_release` | also attach the APK to the rolling `android-latest` pre-release (default `false`) |
 
-  The same thing from a terminal:
+  The same thing from a terminal (address the workflow by file name; the
+  display name GitHub has cached for it can differ):
 
   ```sh
-  gh workflow run "Build Android APK" -f build_type=release -f abis=arm64-v8a
+  gh workflow run build_android.yml --ref <branch> \
+      -f build_type=release -f abis=arm64-v8a
   ```
 
 The finished APK is attached to the run as the artifact

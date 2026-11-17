@@ -57,6 +57,15 @@ def main(argv):
             if asset not in nameset:
                 problems.append("missing asset %s" % asset)
 
+        # An unsigned APK cannot be installed; debug builds and the release
+        # build (signed with the debug key) both carry v1/v2 signature files.
+        signatures = [n for n in names
+                      if n.startswith("META-INF/")
+                      and (n.endswith(".RSA") or n.endswith(".DSA") or n.endswith(".EC")
+                           or n.endswith(".SF"))]
+        if not signatures:
+            problems.append("APK is not signed (no META-INF signature files)")
+
         icons = [n for n in names if n.startswith("assets/icons/")]
         if len(icons) < 100:
             problems.append("only %d icon files packaged" % len(icons))
@@ -80,6 +89,7 @@ def main(argv):
     print("  ABIs: %s" % ", ".join(packaged_abis))
     for abi, size in sorted(so_sizes.items()):
         print("  lib/%s/libpocketdoombuilder.so: %.1f MB" % (abi, size / (1024.0 * 1024.0)))
+    print("  signed: %s" % ("yes" if signatures else "no"))
     print("  icon assets: %d files, fonts: %s"
           % (len(icons), "yes" if all(a in nameset for a in EXPECTED_ASSETS[1:]) else "no"))
 

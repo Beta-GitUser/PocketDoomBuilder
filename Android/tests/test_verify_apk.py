@@ -22,11 +22,14 @@ CORE = ("AndroidManifest.xml", "classes.dex", "resources.arsc")
 ASSETS = ("assets/icons.txt", "assets/Arimo-Regular.ttf", "assets/Arimo-Bold.ttf")
 
 
-def build_apk(path, abis=("arm64-v8a",), icons=150, compress=False):
+def build_apk(path, abis=("arm64-v8a",), icons=150, compress=False, signed=True):
     mode = zipfile.ZIP_DEFLATED if compress else zipfile.ZIP_STORED
     with zipfile.ZipFile(path, "w") as z:
         for name in CORE:
             z.writestr(name, b"x")
+        if signed:
+            z.writestr("META-INF/CERT.RSA", b"x")
+            z.writestr("META-INF/CERT.SF", b"x")
         for abi in abis:
             z.writestr("lib/%s/libpocketdoombuilder.so" % abi, b"\0" * 4096)
         for name in ASSETS:
@@ -84,6 +87,11 @@ def main():
         build_apk(compressed, compress=True)
         expect("rejects compressed assets (noCompress missing)",
                run(compressed, "arm64-v8a"), False, "is compressed in the APK")
+
+        unsigned = tmp / "unsigned.apk"
+        build_apk(unsigned, signed=False)
+        expect("rejects an unsigned APK",
+               run(unsigned, "arm64-v8a"), False, "APK is not signed")
 
         expect("rejects a non-APK file", run(ROOT / "README.md", "arm64-v8a"), False)
 
