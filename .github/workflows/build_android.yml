@@ -46,6 +46,9 @@ on:
 
 permissions:
   contents: write
+  # Used to publish a failed step's log where it can be read without the
+  # Actions log viewer (see Android/tools/report_ci_log.sh).
+  issues: write
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -63,7 +66,16 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Compile and run unit tests + preview
-        run: sh Android/tests/run_tests.sh --preview
+        shell: bash
+        run: |
+          set -o pipefail
+          sh Android/tests/run_tests.sh --preview 2>&1 | tee /tmp/pdb-ci.log
+
+      - name: Publish failure log
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: sh Android/tools/report_ci_log.sh /tmp/pdb-ci.log "host tests"
 
       - name: Upload shell screenshot
         if: always()
@@ -168,10 +180,16 @@ jobs:
           set -euo pipefail
           GRADLE_ARGS=(--no-daemon --stacktrace)
           if [ "$BUILD_TYPE" = "release" ]; then
-            ./gradlew "${GRADLE_ARGS[@]}" assembleRelease
+            ./gradlew "${GRADLE_ARGS[@]}" assembleRelease 2>&1 | tee /tmp/pdb-ci.log
           else
-            ./gradlew "${GRADLE_ARGS[@]}" assembleDebug
+            ./gradlew "${GRADLE_ARGS[@]}" assembleDebug 2>&1 | tee /tmp/pdb-ci.log
           fi
+
+      - name: Publish failure log
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: sh Android/tools/report_ci_log.sh /tmp/pdb-ci.log "gradle build"
 
       - name: Collect APK
         id: apk
