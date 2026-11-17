@@ -22,12 +22,12 @@ CORE = ("AndroidManifest.xml", "classes.dex", "resources.arsc")
 ASSETS = ("assets/icons.txt", "assets/Arimo-Regular.ttf", "assets/Arimo-Bold.ttf")
 
 
-def build_apk(path, abis=("arm64-v8a",), icons=150, compress=False, signed=True):
+def build_apk(path, abis=("arm64-v8a",), icons=150, compress=False, signed="v1"):
     mode = zipfile.ZIP_DEFLATED if compress else zipfile.ZIP_STORED
     with zipfile.ZipFile(path, "w") as z:
         for name in CORE:
             z.writestr(name, b"x")
-        if signed:
+        if signed == "v1":
             z.writestr("META-INF/CERT.RSA", b"x")
             z.writestr("META-INF/CERT.SF", b"x")
         for abi in abis:
@@ -36,6 +36,11 @@ def build_apk(path, abis=("arm64-v8a",), icons=150, compress=False, signed=True)
             z.writestr(name, b"x" * 64, compress_type=mode)
         for i in range(icons):
             z.writestr("assets/icons/icon%03d.png" % i, b"x" * 16)
+    if signed == "v2":
+        # Real v2/v3 APKs carry an "APK Signing Block" just before the
+        # central directory; appending the magic is enough to detect it.
+        with open(path, "ab") as f:
+            f.write(b"\0" * 16 + b"APK Sig Block 42" + b"\0" * 16)
 
 
 def run(apk, *abis):
@@ -89,9 +94,14 @@ def main():
                run(compressed, "arm64-v8a"), False, "is compressed in the APK")
 
         unsigned = tmp / "unsigned.apk"
-        build_apk(unsigned, signed=False)
+        build_apk(unsigned, signed=None)
         expect("rejects an unsigned APK",
                run(unsigned, "arm64-v8a"), False, "APK is not signed")
+
+        v2 = tmp / "v2-signed.apk"
+        build_apk(v2, signed="v2")
+        expect("accepts an APK signed with the v2/v3 scheme only",
+               run(v2, "arm64-v8a"), True, "signed: v2/v3")
 
         expect("rejects a non-APK file", run(ROOT / "README.md", "arm64-v8a"), False)
 

@@ -97,7 +97,10 @@ jobs:
       # Cheap static checks of the Gradle/CMake wiring, so an obviously broken
       # build script fails in seconds instead of after the SDK download.
       - name: Pre-flight build file checks
-        run: sh Android/tests/check_build_files.sh
+        shell: bash
+        run: |
+          set -o pipefail
+          sh Android/tests/check_build_files.sh 2>&1 | tee /tmp/pdb-ci.log
 
       # Inputs are empty for push/PR runs, so resolve sensible defaults once.
       - name: Resolve build options
@@ -174,15 +177,20 @@ jobs:
         run: |
           set -euo pipefail
           GRADLE_ARGS=(--no-daemon --stacktrace)
+          # tee so a failure can be summarised to the log that the
+          # annotation step publishes; pipefail keeps Gradle's exit status.
+          set -o pipefail
           if [ "$BUILD_TYPE" = "release" ]; then
             ./gradlew "${GRADLE_ARGS[@]}" assembleRelease 2>&1 | tee /tmp/pdb-ci.log
           else
             ./gradlew "${GRADLE_ARGS[@]}" assembleDebug 2>&1 | tee /tmp/pdb-ci.log
           fi
 
+      # Every step that can fail logs into /tmp/pdb-ci.log so the annotation
+      # step can report the actual reason through the API.
       - name: Publish failure log as an annotation
         if: failure()
-        run: sh Android/tools/ci_log_annotation.sh /tmp/pdb-ci.log "gradle build failed"
+        run: sh Android/tools/ci_log_annotation.sh /tmp/pdb-ci.log "build failed"
 
       - name: Collect APK
         id: apk
@@ -209,7 +217,7 @@ jobs:
           # native library for the requested ABIs and the assets the shell
           # reads at startup.
           python3 Android/tools/verify_apk.py "$DEST" \
-            "${{ steps.opts.outputs.abis }}" 2>&1 | tee -a /tmp/pdb-ci.log
+            "${{ steps.opts.outputs.abis }}" | tee -a /tmp/pdb-ci.log
           ls -lh "$DEST"
           echo "### APK" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"

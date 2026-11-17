@@ -15,6 +15,19 @@ import zipfile
 
 EXPECTED_ASSETS = ("assets/icons.txt", "assets/Arimo-Regular.ttf", "assets/Arimo-Bold.ttf")
 
+# Magic string of the APK Signing Block (v2/v3 signature scheme).
+SIGNING_BLOCK_MAGIC = b"APK Sig Block 42"
+
+
+def has_signing_block(apk):
+    """True if the APK carries an APK Signing Block (v2/v3 signatures)."""
+    with open(apk, "rb") as f:
+        f.seek(0, 2)
+        size = f.tell()
+        window = min(size, 1 << 20)
+        f.seek(size - window)
+        return SIGNING_BLOCK_MAGIC in f.read(window)
+
 
 def main(argv):
     if len(argv) < 2:
@@ -57,14 +70,17 @@ def main(argv):
             if asset not in nameset:
                 problems.append("missing asset %s" % asset)
 
-        # An unsigned APK cannot be installed; debug builds and the release
-        # build (signed with the debug key) both carry v1/v2 signature files.
-        signatures = [n for n in names
-                      if n.startswith("META-INF/")
-                      and (n.endswith(".RSA") or n.endswith(".DSA") or n.endswith(".EC")
-                           or n.endswith(".SF"))]
-        if not signatures:
-            problems.append("APK is not signed (no META-INF signature files)")
+        # An unsigned APK cannot be installed. With minSdk 24 AGP signs using
+        # APK Signature Scheme v2/v3 only (no v1 META-INF files), so look for
+        # the signing block that sits just before the central directory, and
+        # fall back to v1 signature files.
+        v1 = [n for n in names
+              if n.startswith("META-INF/")
+              and (n.endswith(".RSA") or n.endswith(".DSA") or n.endswith(".EC"))]
+        v2 = has_signing_block(apk)
+        signed = bool(v1) or v2
+        if not signed:
+            problems.append("APK is not signed (no v1 signature files and no APK Signing Block)")
 
         icons = [n for n in names if n.startswith("assets/icons/")]
         if len(icons) < 100:
@@ -89,7 +105,8 @@ def main(argv):
     print("  ABIs: %s" % ", ".join(packaged_abis))
     for abi, size in sorted(so_sizes.items()):
         print("  lib/%s/libpocketdoombuilder.so: %.1f MB" % (abi, size / (1024.0 * 1024.0)))
-    print("  signed: %s" % ("yes" if signatures else "no"))
+    scheme = "v2/v3" if v2 else ("v1" if v1 else "no")
+    print("  signed: %s" % scheme)
     print("  icon assets: %d files, fonts: %s"
           % (len(icons), "yes" if all(a in nameset for a in EXPECTED_ASSETS[1:]) else "no"))
 
