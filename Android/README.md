@@ -36,8 +36,9 @@ workstation cannot run a local NDK build at all. The APK is therefore built by
 
 * **Automatically** on every push / pull request that touches `Android/**` or
   the workflow itself.
-* **Manually** from the *Actions* tab → *Build Android APK* → *Run workflow*,
-  with these inputs:
+* **Manually** from the *Actions* tab → the Android workflow → *Run workflow*
+  (GitHub may list it under the name it was first registered with), with these
+  inputs:
 
   | Input | Meaning |
   | --- | --- |
