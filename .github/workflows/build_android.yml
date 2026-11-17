@@ -47,6 +47,10 @@ on:
         description: 'Boot an x86_64 emulator and check the APK actually starts (slow)'
         type: boolean
         default: false
+      emulator_software_gpu:
+        description: 'Try the emulator even without /dev/kvm (qemu TCG, very slow, may time out)'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -299,18 +303,28 @@ jobs:
 
       - name: Check virtualisation support
         id: kvm
+        env:
+          FORCE_SOFTWARE: ${{ inputs.emulator_software_gpu }}
         run: |
           set -euo pipefail
           usable=false
           if [ -r /dev/kvm ] && [ -w /dev/kvm ]; then
             usable=true
           fi
-          echo "usable=$usable" >> "$GITHUB_OUTPUT"
+          echo "kvm=$usable" >> "$GITHUB_OUTPUT"
           echo "/dev/kvm usable: $usable"
           ls -l /dev/kvm 2>/dev/null || echo "no /dev/kvm on this runner"
+          # Without KVM qemu can still run in TCG mode, just very slowly; allow
+          # that when asked for, so a launch check is possible at all.
+          run=$usable
+          if [ "$usable" != "true" ] && [ "${FORCE_SOFTWARE}" = "true" ]; then
+            run=true
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          echo "run emulator: $run"
 
       - name: Report skipped smoke test
-        if: ${{ steps.kvm.outputs.usable != 'true' }}
+        if: ${{ steps.kvm.outputs.run != 'true' }}
         run: |
           echo "::warning title=Emulator smoke test skipped::No usable /dev/kvm on this runner, so the emulator cannot boot. Run Android/tools/smoke_test.sh against a real device, or run this job on a runner with KVM."
           {
@@ -327,18 +341,18 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Set up JDK 17
-        if: ${{ steps.kvm.outputs.usable == 'true' }}
+        if: ${{ steps.kvm.outputs.run == 'true' }}
         uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
 
       - name: Set up Android SDK
-        if: ${{ steps.kvm.outputs.usable == 'true' }}
+        if: ${{ steps.kvm.outputs.run == 'true' }}
         uses: android-actions/setup-android@v4
 
       - name: Install emulator packages
-        if: ${{ steps.kvm.outputs.usable == 'true' }}
+        if: ${{ steps.kvm.outputs.run == 'true' }}
         run: |
           set -euo pipefail
           # API 30 boots much faster than 34 under software rendering, and the
@@ -350,7 +364,7 @@ jobs:
       # only be downloaded), and an emulator needs the x86_64 slice, so build
       # a debug APK with both ABIs here. Cheap: same Gradle caches and NDK.
       - name: Build the APK to test
-        if: ${{ steps.kvm.outputs.usable == 'true' }}
+        if: ${{ steps.kvm.outputs.run == 'true' }}
         working-directory: Android
         run: |
           set -euo pipefail
@@ -358,24 +372,26 @@ jobs:
           ./gradlew --no-daemon assembleDebug
 
       - name: Boot emulator and launch the app
-        if: ${{ steps.kvm.outputs.usable == 'true' }}
+        if: ${{ steps.kvm.outputs.run == 'true' }}
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
           target: google_apis
           arch: x86_64
           disable-animations: true
-          emulator-boot-timeout: 900
+          # Generous: without KVM the whole system runs emulated.
+          emulator-boot-timeout: 2400
           emulator-options: >-
             -no-window -no-audio -no-boot-anim -no-snapshot
             -gpu swiftshader_indirect -camera-back none -camera-front none
+            ${{ steps.kvm.outputs.kvm != 'true' && '-accel off' || '' }}
           script: |
             sh Android/tools/smoke_test.sh \
               Android/app/build/outputs/apk/debug/app-debug.apk \
               smoke-test.png 25
 
       - name: Upload emulator screenshot and logs
-        if: always() && steps.kvm.outputs.usable == 'true'
+        if: always() && steps.kvm.outputs.run == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: emulator-smoke-test

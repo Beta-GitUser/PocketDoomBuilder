@@ -47,6 +47,7 @@ workstation cannot run a local NDK build at all. The APK is therefore built by
   | `run_host_tests` | compile + run the host unit tests and the shell preview first (default `true`) |
   | `upload_release` | also attach the APK to the rolling `android-latest` pre-release (default `false`) |
   | `run_emulator_smoke_test` | additionally boot an x86_64 emulator, install the APK and check it starts (default `false`; slow) |
+  | `emulator_software_gpu` | try the emulator even without `/dev/kvm` (qemu TCG: very slow, may time out; only as a last resort) |
 
   The same thing from a terminal (address the workflow by file name; the
   display name GitHub has cached for it can differ):
@@ -70,7 +71,9 @@ logcat, so a crash on startup is diagnosable without a device in hand.
 
 The emulator needs `/dev/kvm`, which standard GitHub-hosted runners do **not**
 expose; the job detects that, says so in a warning plus the run summary, and
-skips the boot (it does not fake a failure). On a runner with KVM — a larger
+skips the boot (it does not fake a failure). `emulator_software_gpu=true`
+forces a TCG (fully emulated) boot instead — it can take 20+ minutes and may
+still time out, but it is the only way to get a boot on a hosted runner. On a runner with KVM — a larger
 hosted runner or a self-hosted one — the test runs for real and fails the job
 if the app does not start. The same check runs by hand against any connected
 device:

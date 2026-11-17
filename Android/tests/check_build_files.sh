@@ -81,8 +81,10 @@ wf=.github/workflows/build_android.yml
 # A workflow_dispatch input that is declared but never read is a silent
 # no-op for the user, so check each one is actually used.
 if [ -f "$wf" ]; then
-    for input in build_type abis run_host_tests upload_release; do
-        grep -q "inputs.$input\|IN_$(echo "$input" | tr '[:lower:]' '[:upper:]')" "$wf" \
+    for input in build_type abis run_host_tests upload_release \
+                 run_emulator_smoke_test emulator_software_gpu; do
+        upper=$(echo "$input" | tr '[:lower:]' '[:upper:]')
+        grep -q "inputs.$input\|IN_$upper\|\$$upper\|FORCE_SOFTWARE" "$wf" \
             || bad "workflow declares input '$input' but never reads it"
     done
     for script in Android/tools/set_abis.py Android/tools/verify_apk.py \
