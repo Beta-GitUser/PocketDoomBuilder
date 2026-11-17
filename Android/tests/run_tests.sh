@@ -38,6 +38,9 @@ g++ -std=c++17 -O1 -g -Wall -Wextra -Wno-unused-parameter \
 echo "== running unit tests"
 "$OUT/pdb_tests"
 
+echo "== checking the APK verifier"
+python3 "$ROOT/Android/tests/test_verify_apk.py"
+
 if [ "${1:-}" = "--preview" ] || [ "${2:-}" = "--preview" ]; then
     echo "== building headless preview renderer"
     UI_SRC="$SRC/editor.cpp $SRC/icons.cpp $SRC/render2d.cpp $SRC/theme.cpp $SRC/ui.cpp \

@@ -83,6 +83,8 @@ the whole ImGui shell compile and run on the host with plain `g++`:
 sh Android/tests/run_tests.sh            # unit tests (+ build-file checks)
 sh Android/tests/run_tests.sh --preview  # + headless shell screenshot
 sh Android/tests/check_build_files.sh    # static Gradle/CMake/workflow checks
+python3 Android/tools/verify_apk.py out/PocketDoomBuilder-debug-abc1234.apk arm64-v8a
+                                         # inspect a finished APK
 ```
 
 `check_build_files.sh` needs no NDK: it verifies that every translation unit is
@@ -92,6 +94,16 @@ workflow's pinned NDK, and that every `native*` declaration in `MainActivity.jav
 has a matching `Java_com_pocketdoombuilder_MainActivity_*` implementation. It is
 run automatically by `run_tests.sh` and as a pre-flight step of the CI build, so
 a broken build script fails in seconds instead of after the SDK download.
+
+`verify_apk.py` is the counterpart for a *successful* build: the APK is a zip,
+so it can be inspected without the SDK. It checks that the native library is
+present for exactly the ABIs that were requested, that the icon manifest, the
+icon set and both Arimo fonts are packaged uncompressed (the native side reads
+them straight through `AAssetManager`), and that the manifest/dex/resource table
+are there. The CI build runs it on the finished APK, so a green run means an
+installable APK rather than just a green Gradle task. Its own self-test
+(`Android/tests/test_verify_apk.py`, run by `run_tests.sh`) feeds it synthetic
+APKs with each defect to make sure it actually rejects them.
 
 The preview tool (`Android/tools/render_preview.cpp`) runs the real UI code
 against a small software rasteriser and writes `Android/tools/preview.png`,
