@@ -51,8 +51,17 @@ $SRC/ui_dialogs.cpp $SRC/ui_mapview.cpp $SRC/ui_panels.cpp $SRC/ui_toolbar.cpp"
         "$ROOT/Android/tools/render_preview.cpp" $CORE_SRC $UI_SRC $IMGUI_SRC \
         -o "$OUT/render_preview"
 
+    echo "== checking the PNG downscaler"
+    python3 "$ROOT/Android/tools/downscale_png.py" "$OUT/preview-full.png" \
+        "$OUT/preview-scaled.png" 1 > /dev/null
+    echo "downscaler ok"
+
     echo "== rendering shell preview"
-    "$OUT/render_preview" "$ROOT/Android/tools/preview.png" 1350 933
+    # Render at the real UI size (the layout metrics depend on it), keep the
+    # committed screenshot at half scale so the repository stays small.
+    "$OUT/render_preview" "$OUT/preview-full.png" 1350 933
+    python3 "$ROOT/Android/tools/downscale_png.py" \
+        "$OUT/preview-full.png" "$ROOT/Android/tools/preview.png" 2
     echo "preview written to Android/tools/preview.png"
 fi
 
