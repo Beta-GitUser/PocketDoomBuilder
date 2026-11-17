@@ -280,8 +280,13 @@ jobs:
   # ---------------------------------------------------------------------------
   # Optional: boot the APK on an emulator. Everything above proves the APK
   # exists and is well-formed; only this proves it runs - GLES3 context, ImGui
-  # backend, asset manager, first frame. Slow (hardware acceleration is not
-  # available on hosted runners), so it is opt-in, and it needs an x86_64 build.
+  # backend, asset manager, first frame.
+  #
+  # The emulator needs /dev/kvm. Standard GitHub-hosted runners do not expose
+  # it, in which case the job reports that as a warning and skips the boot
+  # rather than failing for an infrastructure reason. On a runner with KVM
+  # (larger hosted runners, self-hosted) the smoke test runs for real and a
+  # failure is a real failure.
   # ---------------------------------------------------------------------------
   emulator-smoke-test:
     name: Emulator smoke test
@@ -292,45 +297,70 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      - name: Check virtualisation support
+        id: kvm
+        run: |
+          set -euo pipefail
+          usable=false
+          if [ -r /dev/kvm ] && [ -w /dev/kvm ]; then
+            usable=true
+          fi
+          echo "usable=$usable" >> "$GITHUB_OUTPUT"
+          echo "/dev/kvm usable: $usable"
+          ls -l /dev/kvm 2>/dev/null || echo "no /dev/kvm on this runner"
+
+      - name: Report skipped smoke test
+        if: ${{ steps.kvm.outputs.usable != 'true' }}
+        run: |
+          echo "::warning title=Emulator smoke test skipped::No usable /dev/kvm on this runner, so the emulator cannot boot. Run Android/tools/smoke_test.sh against a real device, or run this job on a runner with KVM."
+          {
+            echo "### Emulator smoke test: skipped"
+            echo ""
+            echo "No usable \`/dev/kvm\` on this runner, so the emulator cannot boot."
+            echo ""
+            echo "The APK itself was built and verified by the jobs above. To check"
+            echo "that it starts, connect a device and run:"
+            echo ""
+            echo '```sh'
+            echo "sh Android/tools/smoke_test.sh <apk>"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Set up JDK 17
+        if: ${{ steps.kvm.outputs.usable == 'true' }}
         uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
 
       - name: Set up Android SDK
+        if: ${{ steps.kvm.outputs.usable == 'true' }}
         uses: android-actions/setup-android@v4
 
       - name: Install emulator packages
+        if: ${{ steps.kvm.outputs.usable == 'true' }}
         run: |
           set -euo pipefail
+          # API 30 boots much faster than 34 under software rendering, and the
+          # port's minSdk is 24, so nothing about it needs a newer image.
           sdkmanager --install "platform-tools" "emulator" \
             "system-images;android-30;google_apis;x86_64" "platforms;android-30"
 
-      # The APK from build-apk cannot be reused (artifacts are zipped and only
-      # downloadable), and an emulator needs the x86_64 slice, so build a
-      # debug APK with both ABIs here. Cheap: same Gradle caches, same NDK.
+      # The APK from build-apk cannot be reused (artifacts are zipped and can
+      # only be downloaded), and an emulator needs the x86_64 slice, so build
+      # a debug APK with both ABIs here. Cheap: same Gradle caches and NDK.
       - name: Build the APK to test
+        if: ${{ steps.kvm.outputs.usable == 'true' }}
         working-directory: Android
         run: |
           set -euo pipefail
           python3 tools/set_abis.py "arm64-v8a,x86_64"
           ./gradlew --no-daemon assembleDebug
 
-      # Software rendering only works at a usable speed with KVM, so report
-      # what the runner offers before spending minutes on a boot.
-      - name: Check virtualisation support
-        run: |
-          set -euo pipefail
-          ls -l /dev/kvm || echo "no /dev/kvm"
-          grep -cE 'vmx|svm' /proc/cpuinfo || true
-          echo "KVM: $([ -r /dev/kvm ] && [ -w /dev/kvm ] && echo usable || echo unavailable)"
-
       - name: Boot emulator and launch the app
+        if: ${{ steps.kvm.outputs.usable == 'true' }}
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          # API 30 boots far faster than 34 under software rendering, and the
-          # app's minSdk is 24, so nothing about the port needs a newer image.
           api-level: 30
           target: google_apis
           arch: x86_64
@@ -345,7 +375,7 @@ jobs:
               smoke-test.png 25
 
       - name: Upload emulator screenshot and logs
-        if: always()
+        if: always() && steps.kvm.outputs.usable == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: emulator-smoke-test

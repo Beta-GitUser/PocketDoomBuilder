@@ -62,11 +62,17 @@ tests is attached as `shell-preview`. On failure the workflow also uploads the
 Gradle reports and CMake logs (`build-logs`).
 
 The optional emulator job is the only check that proves the APK *runs*: it
-installs it on an API 34 x86_64 emulator, launches `MainActivity`, and requires
+installs it on an API 30 x86_64 emulator, launches `MainActivity`, and requires
 the process to stay alive, the activity to be resumed, `ImGui ready` in logcat,
 and no `FATAL EXCEPTION` / `Fatal signal`. It uploads a screenshot and the full
-logcat, so a crash on startup is diagnosable without a device in hand. The same
-check can be run by hand against any connected device:
+logcat, so a crash on startup is diagnosable without a device in hand.
+
+The emulator needs `/dev/kvm`, which standard GitHub-hosted runners do **not**
+expose; the job detects that, says so in a warning plus the run summary, and
+skips the boot (it does not fake a failure). On a runner with KVM — a larger
+hosted runner or a self-hosted one — the test runs for real and fails the job
+if the app does not start. The same check runs by hand against any connected
+device:
 
 ```sh
 sh Android/tools/smoke_test.sh app/build/outputs/apk/debug/app-debug.apk shot.png
