@@ -45,6 +45,7 @@ workstation cannot run a local NDK build at all. The APK is therefore built by
   | `abis` | `arm64-v8a` (default, for devices) or `arm64-v8a,x86_64` (adds emulator support); rewrites `abiFilters` via `Android/tools/set_abis.py` |
   | `run_host_tests` | compile + run the host unit tests and the shell preview first (default `true`) |
   | `upload_release` | also attach the APK to the rolling `android-latest` pre-release (default `false`) |
+  | `run_emulator_smoke_test` | additionally boot an x86_64 emulator, install the APK and check it starts (default `false`; slow) |
 
   The same thing from a terminal (address the workflow by file name; the
   display name GitHub has cached for it can differ):
@@ -59,6 +60,17 @@ The finished APK is attached to the run as the artifact
 `PocketDoomBuilder-<build_type>-<sha>.apk`); the shell screenshot from the host
 tests is attached as `shell-preview`. On failure the workflow also uploads the
 Gradle reports and CMake logs (`build-logs`).
+
+The optional emulator job is the only check that proves the APK *runs*: it
+installs it on an API 34 x86_64 emulator, launches `MainActivity`, and requires
+the process to stay alive, the activity to be resumed, `ImGui ready` in logcat,
+and no `FATAL EXCEPTION` / `Fatal signal`. It uploads a screenshot and the full
+logcat, so a crash on startup is diagnosable without a device in hand. The same
+check can be run by hand against any connected device:
+
+```sh
+sh Android/tools/smoke_test.sh app/build/outputs/apk/debug/app-debug.apk shot.png
+```
 
 ### Locally (x64 or arm64 host with an x64 NDK)
 

@@ -30,7 +30,10 @@ for f in \
     Android/app/src/main/assets/icons.txt \
     Android/app/src/main/assets/Arimo-Regular.ttf \
     Android/third_party/imgui/imgui.cpp \
-    Android/third_party/imgui/backends/imgui_impl_opengl3.cpp
+    Android/third_party/imgui/backends/imgui_impl_opengl3.cpp \
+    Android/tools/smoke_test.sh \
+    Android/tools/verify_apk.py \
+    Android/tools/ci_log_annotation.sh
 do
     [ -f "$f" ] || bad "missing $f"
 done
@@ -72,8 +75,24 @@ cmake_version=$(grep -oE "version '[0-9.]+'" Android/app/build.gradle | head -1 
 [ -n "$gradle_version" ] || bad "gradle-wrapper.properties has no Gradle distributionUrl"
 note "AGP $agp_version on Gradle $gradle_version, CMake $cmake_version"
 
-# --- the workflow must install the NDK version Gradle asks for --------------
 wf=.github/workflows/build_android.yml
+
+# --- every build input the workflow offers must be consumed ----------------
+# A workflow_dispatch input that is declared but never read is a silent
+# no-op for the user, so check each one is actually used.
+if [ -f "$wf" ]; then
+    for input in build_type abis run_host_tests upload_release; do
+        grep -q "inputs.$input\|IN_$(echo "$input" | tr '[:lower:]' '[:upper:]')" "$wf" \
+            || bad "workflow declares input '$input' but never reads it"
+    done
+    for script in Android/tools/set_abis.py Android/tools/verify_apk.py \
+                  Android/tools/ci_log_annotation.sh Android/tests/check_build_files.sh; do
+        grep -q "$(basename "$script")" "$wf" || bad "workflow never runs $(basename "$script")"
+    done
+    note "workflow inputs are all consumed"
+fi
+
+# --- the workflow must install the NDK version Gradle asks for --------------
 if [ -f "$wf" ]; then
     grep -q "ndk;$ndk_version" "$wf" || bad "workflow does not install ndk;$ndk_version"
     grep -q "platforms;android-35" "$wf" || bad "workflow does not install platforms;android-35"
