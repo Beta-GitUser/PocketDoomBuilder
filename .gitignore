@@ -27,3 +27,6 @@ bin
 /Android/tests/build
 /Android/.idea
 /Android/*.iml
+/Android/app/.cxx
+# APKs collected by the CI workflow / local builds
+/out

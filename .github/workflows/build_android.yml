@@ -1,0 +1,238 @@
+name: Build Android APK
+
+# Manual build for the PocketDoomBuilder Android port.
+#
+# Everything runs on GitHub-hosted x64 runners, which is what makes this
+# usable from an arm64-only workstation: Google does not ship arm64 Linux NDK
+# builds, so the APK has to be produced here.
+#
+# Run it from the Actions tab (or `gh workflow run "Build Android APK"`).
+# The finished APK is attached as a build artifact and, for non-PR runs, also
+# uploaded to a rolling pre-release named "android-latest".
+
+on:
+  # Also build automatically when the port changes, so a broken APK build is
+  # caught without anyone remembering to press the button.
+  push:
+    paths:
+      - 'Android/**'
+      - '.github/workflows/build_android.yml'
+  pull_request:
+    paths:
+      - 'Android/**'
+      - '.github/workflows/build_android.yml'
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Gradle build type'
+        type: choice
+        options: [debug, release]
+        default: debug
+      abis:
+        description: 'ABIs to build (arm64 for devices, x86_64 for emulators)'
+        type: choice
+        options:
+          - 'arm64-v8a'
+          - 'arm64-v8a,x86_64'
+        default: 'arm64-v8a'
+      run_host_tests:
+        description: 'Run host unit tests + shell preview before building'
+        type: boolean
+        default: true
+      upload_release:
+        description: 'Upload APK to the rolling "android-latest" pre-release'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Fast host-side checks: the platform-independent code (WAD/map codecs,
+  # view maths, PNG decoder) and the whole ImGui shell compile and run on the
+  # runner without the NDK. Failing here saves a long APK build.
+  # ---------------------------------------------------------------------------
+  host-tests:
+    name: Host tests (x64)
+    # Runs on manual builds when asked for, and always on push/PR.
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.run_host_tests }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Compile and run unit tests + preview
+        run: sh Android/tests/run_tests.sh --preview
+
+      - name: Upload shell screenshot
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: shell-preview
+          path: Android/tools/preview.png
+          if-no-files-found: warn
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # The real build: NDK + CMake + Gradle, producing an installable APK.
+  # ---------------------------------------------------------------------------
+  build-apk:
+    name: Build APK
+    needs: host-tests
+    # `needs` is skipped when host-tests is skipped, so allow that case.
+    if: ${{ always() && (needs.host-tests.result == 'success' || needs.host-tests.result == 'skipped') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      # Cheap static checks of the Gradle/CMake wiring, so an obviously broken
+      # build script fails in seconds instead of after the SDK download.
+      - name: Pre-flight build file checks
+        run: sh Android/tests/check_build_files.sh
+
+      # Inputs are empty for push/PR runs, so resolve sensible defaults once.
+      - name: Resolve build options
+        id: opts
+        env:
+          IN_BUILD_TYPE: ${{ inputs.build_type }}
+          IN_ABIS: ${{ inputs.abis }}
+          IN_UPLOAD: ${{ inputs.upload_release }}
+        run: |
+          set -euo pipefail
+          BUILD_TYPE="${IN_BUILD_TYPE:-debug}"
+          ABIS="${IN_ABIS:-arm64-v8a}"
+          UPLOAD="${IN_UPLOAD:-false}"
+          # Push/PR builds never touch the rolling release.
+          if [ "${GITHUB_EVENT_NAME}" != "workflow_dispatch" ]; then
+            UPLOAD=false
+          fi
+          {
+            echo "build_type=$BUILD_TYPE"
+            echo "abis=$ABIS"
+            echo "upload_release=$UPLOAD"
+          } >> "$GITHUB_OUTPUT"
+          echo "build_type=$BUILD_TYPE abis=$ABIS upload_release=$UPLOAD"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          # caches ~/.gradle and validates the wrapper distribution
+          cache-read-only: false
+
+      - name: Install platform, build tools and NDK r27
+        run: |
+          set -euo pipefail
+          # setup-android already accepted the licences and installed
+          # platform-tools, so only the build-specific packages are missing.
+          sdkmanager --install \
+            "platforms;android-35" \
+            "build-tools;35.0.0" \
+            "cmake;3.22.1" \
+            "ndk;27.0.12077973"
+          # AGP finds the NDK through the SDK itself (ndkVersion in
+          # app/build.gradle); exporting the usual variables just makes the
+          # logs and any stray invocation point at the same install.
+          sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/.android/sdk}}"
+          echo "ANDROID_NDK_HOME=$sdk_root/ndk/27.0.12077973" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ROOT=$sdk_root/ndk/27.0.12077973" >> "$GITHUB_ENV"
+
+      - name: Show toolchain
+        run: |
+          java -version
+          echo "SDK root: ${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/.android/sdk}}"
+          echo "NDK root: $ANDROID_NDK_ROOT"
+          ls "$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt" || true
+          ls "$ANDROID_SDK_ROOT/cmake" || true
+
+      - name: Configure ABIs
+        env:
+          ABIS: ${{ steps.opts.outputs.abis }}
+        run: python3 Android/tools/set_abis.py "$ABIS"
+
+      - name: Build
+        working-directory: Android
+        env:
+          BUILD_TYPE: ${{ steps.opts.outputs.build_type }}
+        run: |
+          set -euo pipefail
+          GRADLE_ARGS=(--no-daemon --stacktrace)
+          if [ "$BUILD_TYPE" = "release" ]; then
+            ./gradlew "${GRADLE_ARGS[@]}" assembleRelease
+          else
+            ./gradlew "${GRADLE_ARGS[@]}" assembleDebug
+          fi
+
+      - name: Collect APK
+        id: apk
+        run: |
+          set -euo pipefail
+          BUILD_TYPE="${{ steps.opts.outputs.build_type }}"
+          if [ "$BUILD_TYPE" = "release" ]; then
+            SRC=$(find Android/app/build/outputs/apk/release -name '*.apk' | head -1)
+            SUFFIX=release
+          else
+            SRC=$(find Android/app/build/outputs/apk/debug -name '*.apk' | head -1)
+            SUFFIX=debug
+          fi
+          if [ -z "${SRC:-}" ]; then
+            echo "No APK produced" >&2
+            exit 1
+          fi
+          mkdir -p out
+          DEST="out/PocketDoomBuilder-${SUFFIX}-${GITHUB_SHA::7}.apk"
+          cp "$SRC" "$DEST"
+          echo "apk=$DEST" >> "$GITHUB_OUTPUT"
+          ls -lh "$DEST"
+          echo "### APK" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "$DEST ($(du -h "$DEST" | cut -f1))" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: PocketDoomBuilder-${{ steps.opts.outputs.build_type }}-apk
+          path: out/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      # Optional: keep a rolling pre-release so the APK can be downloaded
+      # straight onto the device without logging into Actions.
+      - name: Upload to rolling pre-release
+        if: ${{ steps.opts.outputs.upload_release == 'true' }}
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: android-latest
+          name: 'PocketDoomBuilder (latest Android build)'
+          prerelease: true
+          body: |
+            Rolling build of the PocketDoomBuilder Android port.
+
+            * commit: `${{ github.sha }}`
+            * build type: `${{ steps.opts.outputs.build_type }}`
+            * ABIs: `${{ steps.opts.outputs.abis }}`
+            * built by: workflow run ${{ github.run_id }}
+          files: out/*.apk
+
+      - name: Upload Gradle/CMake logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-logs
+          path: |
+            Android/app/build/reports/**
+            Android/app/.cxx/**
+            Android/build/reports/**
+          if-no-files-found: warn
+          retention-days: 7

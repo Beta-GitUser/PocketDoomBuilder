@@ -28,18 +28,51 @@ or phone while looking as close to the desktop interface as possible.
 
 ## Building
 
-Requirements: Android SDK 35, NDK r26+, CMake 3.22+, JDK 17, Gradle 8.9+.
+### On GitHub Actions (the normal route)
+
+Google only ships **x64** builds of the Android NDK, so an arm64-only
+workstation cannot run a local NDK build at all. The APK is therefore built by
+`.github/workflows/build_android.yml` on a GitHub-hosted `ubuntu-24.04` runner:
+
+* **Automatically** on every push / pull request that touches `Android/**` or
+  the workflow itself.
+* **Manually** from the *Actions* tab → *Build Android APK* → *Run workflow*,
+  with these inputs:
+
+  | Input | Meaning |
+  | --- | --- |
+  | `build_type` | `debug` (default) or `release` (release is signed with the debug key so it installs without a keystore) |
+  | `abis` | `arm64-v8a` (default, for devices) or `arm64-v8a,x86_64` (adds emulator support); rewrites `abiFilters` via `Android/tools/set_abis.py` |
+  | `run_host_tests` | compile + run the host unit tests and the shell preview first (default `true`) |
+  | `upload_release` | also attach the APK to the rolling `android-latest` pre-release (default `false`) |
+
+  The same thing from a terminal:
+
+  ```sh
+  gh workflow run "Build Android APK" -f build_type=release -f abis=arm64-v8a
+  ```
+
+The finished APK is attached to the run as the artifact
+`PocketDoomBuilder-<build_type>-apk` (file name
+`PocketDoomBuilder-<build_type>-<sha>.apk`); the shell screenshot from the host
+tests is attached as `shell-preview`. On failure the workflow also uploads the
+Gradle reports and CMake logs (`build-logs`).
+
+### Locally (x64 or arm64 host with an x64 NDK)
+
+Requirements: Android SDK 35, NDK `27.0.12077973`, CMake 3.22.1, JDK 17.
 
 ```sh
 cd Android
-gradle assembleDebug         # APK in app/build/outputs/apk/debug/
+./gradlew assembleDebug      # APK in app/build/outputs/apk/debug/
 ```
 
-(`gradle wrapper` can be run once to generate `./gradlew` if you prefer the
-wrapper; the wrapper JAR is not checked in here.)
+The Gradle wrapper (8.9) is checked in, and `local.properties` (or
+`ANDROID_HOME` / `ANDROID_SDK_ROOT`) has to point at an SDK.
 
 Dear ImGui (v1.92.9b-docking, docking branch) is vendored in
-`Android/third_party/imgui`, so no network access is needed during the build.
+`Android/third_party/imgui`, so no network access is needed during the build
+beyond Gradle's own dependency resolution.
 
 ## Running the checks without a device
 
@@ -47,9 +80,18 @@ The platform-independent code (WAD/map codecs, view maths, PNG decoder) plus
 the whole ImGui shell compile and run on the host with plain `g++`:
 
 ```sh
-sh Android/tests/run_tests.sh            # unit tests
+sh Android/tests/run_tests.sh            # unit tests (+ build-file checks)
 sh Android/tests/run_tests.sh --preview  # + headless shell screenshot
+sh Android/tests/check_build_files.sh    # static Gradle/CMake/workflow checks
 ```
+
+`check_build_files.sh` needs no NDK: it verifies that every translation unit is
+hooked into `CMakeLists.txt`, that the GLES3 backend define and libraries are
+in place, that the Gradle wiring (namespace, `ndkVersion`, ABI list) matches the
+workflow's pinned NDK, and that every `native*` declaration in `MainActivity.java`
+has a matching `Java_com_pocketdoombuilder_MainActivity_*` implementation. It is
+run automatically by `run_tests.sh` and as a pre-flight step of the CI build, so
+a broken build script fails in seconds instead of after the SDK download.
 
 The preview tool (`Android/tools/render_preview.cpp`) runs the real UI code
 against a small software rasteriser and writes `Android/tools/preview.png`,

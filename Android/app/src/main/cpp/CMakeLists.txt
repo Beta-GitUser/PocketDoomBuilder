@@ -8,7 +8,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # ---------------------------------------------------------------------------
 # Dear ImGui (vendored in Android/third_party/imgui, v1.92.9b-docking)
 # ---------------------------------------------------------------------------
-set(IMGUI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../../third_party/imgui)
+# Android/third_party/imgui, resolved relative to this file so the project can
+# be configured from anywhere.
+get_filename_component(IMGUI_DIR
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../third_party/imgui" ABSOLUTE)
 
 add_library(imgui STATIC
     ${IMGUI_DIR}/imgui.cpp
@@ -22,6 +25,8 @@ target_include_directories(imgui PUBLIC
     ${IMGUI_DIR}/backends
 )
 target_compile_options(imgui PRIVATE -fno-exceptions -fno-rtti)
+# The OpenGL3 backend must be told to use OpenGL ES 3 / GLES3 headers.
+target_compile_definitions(imgui PUBLIC IMGUI_IMPL_OPENGL_ES3)
 target_link_libraries(imgui PUBLIC GLESv3 android log)
 
 # ---------------------------------------------------------------------------

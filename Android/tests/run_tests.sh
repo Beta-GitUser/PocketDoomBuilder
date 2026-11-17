@@ -25,6 +25,8 @@ IMGUI_SRC="$IMGUI/imgui.cpp $IMGUI/imgui_draw.cpp $IMGUI/imgui_tables.cpp $IMGUI
 CORE_SRC="$SRC/map.cpp $SRC/wad.cpp $SRC/mapio.cpp $SRC/mapio_binary.cpp \
 $SRC/mapio_udmf.cpp $SRC/view2d.cpp $SRC/png.cpp"
 
+sh "$ROOT/Android/tests/check_build_files.sh"
+
 echo "== building unit tests"
 g++ -std=c++17 -O1 -g -Wall -Wextra -Wno-unused-parameter \
     -DPDB_ASSET_DIR="\"$ASSETS\"" \
