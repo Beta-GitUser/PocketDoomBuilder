@@ -2,6 +2,7 @@
 // mapio.cpp — Map format detection + dispatch, and WAD save.
 
 #include <algorithm>
+#include <cstdint>
 #include <cstring>
 
 #include "mapio.h"

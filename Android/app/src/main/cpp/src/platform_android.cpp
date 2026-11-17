@@ -13,6 +13,7 @@
 #include <android/asset_manager.h>
 #include <android/asset_manager_jni.h>
 #include <android/log.h>
+#include <cstdint>
 #include <jni.h>
 
 #include <GLES3/gl3.h>

@@ -4,6 +4,7 @@
 // See Android/tests/run_tests.sh for the exact command line.
 
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <string>

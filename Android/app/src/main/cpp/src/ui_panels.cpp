@@ -7,6 +7,7 @@
 // MainForm.Designer.cs (console on the left, statistics docked right).
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <string>
 #include <vector>

@@ -46,9 +46,6 @@ on:
 
 permissions:
   contents: write
-  # Used to publish a failed step's log where it can be read without the
-  # Actions log viewer (see Android/tools/report_ci_log.sh).
-  issues: write
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -71,11 +68,9 @@ jobs:
           set -o pipefail
           sh Android/tests/run_tests.sh --preview 2>&1 | tee /tmp/pdb-ci.log
 
-      - name: Publish failure log
+      - name: Publish failure log as an annotation
         if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: sh Android/tools/report_ci_log.sh /tmp/pdb-ci.log "host tests"
+        run: sh Android/tools/ci_log_annotation.sh /tmp/pdb-ci.log "host tests failed"
 
       - name: Upload shell screenshot
         if: always()
@@ -185,11 +180,9 @@ jobs:
             ./gradlew "${GRADLE_ARGS[@]}" assembleDebug 2>&1 | tee /tmp/pdb-ci.log
           fi
 
-      - name: Publish failure log
+      - name: Publish failure log as an annotation
         if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: sh Android/tools/report_ci_log.sh /tmp/pdb-ci.log "gradle build"
+        run: sh Android/tools/ci_log_annotation.sh /tmp/pdb-ci.log "gradle build failed"
 
       - name: Collect APK
         id: apk

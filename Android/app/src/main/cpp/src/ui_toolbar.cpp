@@ -6,6 +6,7 @@
 // Android shell reads the same as the desktop.
 
 #include <cstdio>
+#include <cmath>
 #include <string>
 #include <vector>
 

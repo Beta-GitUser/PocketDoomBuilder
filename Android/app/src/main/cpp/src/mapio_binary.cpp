@@ -4,6 +4,7 @@
 // Field layouts taken 1:1 from Source/Core/IO/DoomMapSetIO.cs and
 // Source/Core/IO/HexenMapSetIO.cs (ReadBytes / WriteMap).
 
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 

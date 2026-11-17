@@ -4,6 +4,7 @@
 #include "view2d.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 

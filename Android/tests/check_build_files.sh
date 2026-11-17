@@ -83,6 +83,28 @@ if [ -f "$wf" ]; then
     note "workflow installs the pinned NDK and SDK platform"
 fi
 
+# --- headers include what they use ------------------------------------------
+# libstdc++ 13 no longer pulls <cstdint> in through <string>/<vector>, which
+# broke the CI build once (theme.cpp), so check for the include explicitly
+# instead of relying on the compiler's transitive headers.
+sources=$(ls Android/app/src/main/cpp/src/*.h Android/app/src/main/cpp/src/*.cpp \
+    Android/tests/pdb_tests.cpp Android/tools/render_preview.cpp)
+for f in $sources; do
+    if grep -qE '\b(u?int(8|16|32|64)_t|u?intptr_t|u?intmax_t)\b' "$f"; then
+        grep -qE '#include <cstdint>|#include <stdint.h>' "$f" \
+            || bad "$(basename "$f") uses fixed-width integer types without <cstdint>"
+    fi
+    if grep -qE '\b(size_t|ptrdiff_t)\b' "$f"; then
+        grep -qE '#include <(cstddef|stddef\.h|cstdio|cstdlib|cstring|string|vector|algorithm|cmath)>' "$f" \
+            || bad "$(basename "$f") uses size_t without a header that provides it"
+    fi
+    if grep -qE '(std::)?(sqrt|fabs|floor|ceil|lround|round|atan2|hypot|sin|cos|tan|pow)\(' "$f"; then
+        grep -qE '#include <cmath>|#include <math.h>' "$f" \
+            || bad "$(basename "$f") uses math functions without <cmath>"
+    fi
+done
+note "every translation unit includes the headers it uses"
+
 # --- JNI entry points line up with the Java declarations --------------------
 java=Android/app/src/main/java/com/pocketdoombuilder/MainActivity.java
 for m in $(grep -oE 'native [a-zA-Z]+ native[A-Za-z]+' "$java" | awk '{print $3}'); do

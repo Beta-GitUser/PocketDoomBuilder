@@ -3,6 +3,7 @@
 
 #include "wad.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 

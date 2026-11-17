@@ -10,6 +10,7 @@
 #include "png.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <cstring>
 
 namespace pdb {

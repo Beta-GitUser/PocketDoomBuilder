@@ -4,6 +4,7 @@
 #include "editor.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <cstdio>
 
 namespace pdb {

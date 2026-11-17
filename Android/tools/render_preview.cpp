@@ -6,12 +6,13 @@
 // which is all ImGui emits) and writes the result as a PNG. Useful for
 // checking the 1:1 layout against the desktop screenshots without a phone.
 //
-//   g++ -std=c++17 -O2 -I ../../third_party/imgui -I ../app/src/main/cpp/src \
-//       render_preview.cpp ../app/src/main/cpp/src/*.cpp \
-//       ../../third_party/imgui/imgui*.cpp -o render_preview
+// Build and run it through Android/tests/run_tests.sh --preview, or by hand:
+//   g++ -std=c++17 -O2 -I <imgui> -I <src> render_preview.cpp <src>/*.cpp
+//       <imgui>/imgui*.cpp -o render_preview
 //   ./render_preview out.png [width height]
 
 #include <algorithm>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
