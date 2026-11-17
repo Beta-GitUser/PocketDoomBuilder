@@ -216,13 +216,24 @@ jobs:
           # A green build is only useful if the APK actually contains the
           # native library for the requested ABIs and the assets the shell
           # reads at startup.
-          python3 Android/tools/verify_apk.py "$DEST" \
-            "${{ steps.opts.outputs.abis }}" | tee -a /tmp/pdb-ci.log
+          if ! REPORT=$(python3 Android/tools/verify_apk.py "$DEST" \
+                  "${{ steps.opts.outputs.abis }}" 2>&1); then
+            # Log it before failing, so the annotation step can report why.
+            echo "$REPORT" | tee -a /tmp/pdb-ci.log
+            exit 1
+          fi
+          echo "$REPORT" | tee -a /tmp/pdb-ci.log
           ls -lh "$DEST"
-          echo "### APK" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          echo "$DEST ($(du -h "$DEST" | cut -f1))" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "### APK"
+            echo '```'
+            echo "$DEST ($(du -h "$DEST" | cut -f1))"
+            echo '```'
+            echo "### Contents"
+            echo '```'
+            echo "$REPORT"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v7
