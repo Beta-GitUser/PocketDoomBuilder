@@ -18,3 +18,12 @@ bin
 /Source/Core/*.user
 /Source/Native/*.log
 /Build/builder
+
+# PocketDoomBuilder (Android port) build outputs
+/Android/.gradle
+/Android/build
+/Android/app/build
+/Android/local.properties
+/Android/tests/build
+/Android/.idea
+/Android/*.iml
