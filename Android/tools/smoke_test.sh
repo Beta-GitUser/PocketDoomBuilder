@@ -22,8 +22,28 @@ ACTIVITY=$PACKAGE/.MainActivity
 
 log() { printf '%s\n' "$*"; }
 
+# Always leave a logcat (and screenshot, when possible) behind, even if the
+# device never becomes usable, so the artifacts explain the failure.
+dump_logs() {
+    if [ "${LOGS_DUMPED:-0}" = "0" ]; then
+        LOGS_DUMPED=1
+        adb logcat -d > smoke-test-logcat.txt 2>/dev/null || true
+        if [ ! -s "$SHOT" ]; then
+            adb exec-out screencap -p > "$SHOT" 2>/dev/null || true
+        fi
+    fi
+}
+trap 'dump_logs' EXIT
+
 log "== waiting for the device"
-adb wait-for-device
+if ! command -v adb > /dev/null 2>&1; then
+    log "FAIL: adb is not on PATH"
+    exit 1
+fi
+if ! adb wait-for-device; then
+    log "FAIL: no device/emulator answered adb"
+    exit 1
+fi
 # The boot is not complete when the device answers adb; the package manager
 # has to be up before 'install' works reliably.
 i=0
@@ -74,7 +94,7 @@ else
 fi
 
 # 2. No fatal exception, no native crash. Save the logs for the artifact first.
-adb logcat -d > smoke-test-logcat.txt 2>/dev/null || true
+dump_logs
 if grep -qE "FATAL EXCEPTION|beginning of crash|Fatal signal|native crash" smoke-test-logcat.txt; then
     log "FAIL: crash in logcat"
     grep -nE -A5 "FATAL EXCEPTION|beginning of crash|Fatal signal" smoke-test-logcat.txt | head -40

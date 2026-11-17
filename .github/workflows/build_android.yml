@@ -305,7 +305,7 @@ jobs:
         run: |
           set -euo pipefail
           sdkmanager --install "platform-tools" "emulator" \
-            "system-images;android-34;google_apis;x86_64" "platforms;android-34"
+            "system-images;android-30;google_apis;x86_64" "platforms;android-30"
 
       # The APK from build-apk cannot be reused (artifacts are zipped and only
       # downloadable), and an emulator needs the x86_64 slice, so build a
@@ -317,14 +317,28 @@ jobs:
           python3 tools/set_abis.py "arm64-v8a,x86_64"
           ./gradlew --no-daemon assembleDebug
 
+      # Software rendering only works at a usable speed with KVM, so report
+      # what the runner offers before spending minutes on a boot.
+      - name: Check virtualisation support
+        run: |
+          set -euo pipefail
+          ls -l /dev/kvm || echo "no /dev/kvm"
+          grep -cE 'vmx|svm' /proc/cpuinfo || true
+          echo "KVM: $([ -r /dev/kvm ] && [ -w /dev/kvm ] && echo usable || echo unavailable)"
+
       - name: Boot emulator and launch the app
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
+          # API 30 boots far faster than 34 under software rendering, and the
+          # app's minSdk is 24, so nothing about the port needs a newer image.
+          api-level: 30
           target: google_apis
           arch: x86_64
           disable-animations: true
-          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
+          emulator-boot-timeout: 900
+          emulator-options: >-
+            -no-window -no-audio -no-boot-anim -no-snapshot
+            -gpu swiftshader_indirect -camera-back none -camera-front none
           script: |
             sh Android/tools/smoke_test.sh \
               Android/app/build/outputs/apk/debug/app-debug.apk \
