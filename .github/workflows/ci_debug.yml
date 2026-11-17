@@ -1,15 +1,13 @@
 name: CI debug log
 
-# Temporary: re-runs the host checks and publishes the raw log to the
-# "ci-logs" branch so it can be read with plain git.
+# Temporary: runs the host checks and republishes the tail of the log as
+# check-run annotations, which can be read through the API (the Actions log
+# viewer host is not reachable from every client).
 on:
   workflow_dispatch:
   push:
     paths:
       - '.github/workflows/ci_debug.yml'
-
-permissions:
-  contents: write
 
 jobs:
   host:
@@ -19,14 +17,13 @@ jobs:
       - name: Checks
         run: |
           set -o pipefail
-          sh Android/tests/run_tests.sh --preview > /tmp/log.txt 2>&1 || echo "EXIT=$?" >> /tmp/log.txt
+          {
+            echo "g++: $(g++ --version | head -1)"
+            echo "sh: $(readlink -f /bin/sh)"
+          } > /tmp/log.txt
+          sh Android/tests/run_tests.sh --preview >> /tmp/log.txt 2>&1 || echo "EXIT=$?" >> /tmp/log.txt
           cat /tmp/log.txt
-          { echo "which g++: $(which g++ 2>&1)"; g++ --version 2>&1 | head -2; echo "sh -> $(readlink -f /bin/sh)"; } >> /tmp/log.txt
-          cat /tmp/log.txt >> "$GITHUB_STEP_SUMMARY"
-          git config user.name ci-logs
-          git config user.email ci-logs@example.com
-          git checkout -q -B ci-logs
-          cp /tmp/log.txt ci-log.txt
-          git add ci-log.txt
-          git commit -q -m "CI log $(date -u +%FT%TZ) ${GITHUB_SHA:0:7}" || true
-          git push -q -f origin ci-logs
+          # Emit the tail as one annotation: %0A is a newline, %25 a literal %.
+          MSG=$(tail -n 40 /tmp/log.txt | sed 's/%/%25/g')
+          printf '::error file=ci-log.txt,title=host+checks+log::%s%%0A' "$(echo "$MSG" | sed ':a;N;$!ba;s/\n/%0A/g')"
+          echo "done"
