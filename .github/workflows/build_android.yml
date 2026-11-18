@@ -178,10 +178,28 @@ jobs:
           ABIS: ${{ steps.opts.outputs.abis }}
         run: python3 Android/tools/set_abis.py "$ABIS"
 
+      # A stable signing key, so a new build installs over the old one on the
+      # phone instead of being rejected ("app not installed") and forcing an
+      # uninstall that wipes the app's data. Absent the secrets this is a no-op
+      # and the throwaway debug key is used, as before.
+      - name: Decode signing key
+        env:
+          PDB_KEYSTORE_BASE64: ${{ secrets.PDB_KEYSTORE_BASE64 }}
+          PDB_KEYSTORE_PASSWORD: ${{ secrets.PDB_KEYSTORE_PASSWORD }}
+          PDB_KEY_ALIAS: ${{ secrets.PDB_KEY_ALIAS }}
+          PDB_KEY_PASSWORD: ${{ secrets.PDB_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          python3 Android/tools/setup_signing.py 2>&1 | tee -a /tmp/pdb-ci.log
+
       - name: Build
         working-directory: Android
         env:
           BUILD_TYPE: ${{ steps.opts.outputs.build_type }}
+          PDB_KEYSTORE: ${{ runner.temp }}/pdb-release.jks
+          PDB_KEYSTORE_PASSWORD: ${{ secrets.PDB_KEYSTORE_PASSWORD }}
+          PDB_KEY_ALIAS: ${{ secrets.PDB_KEY_ALIAS }}
+          PDB_KEY_PASSWORD: ${{ secrets.PDB_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           GRADLE_ARGS=(--no-daemon --stacktrace)

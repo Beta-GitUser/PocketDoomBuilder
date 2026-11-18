@@ -519,15 +519,15 @@ void drawToolbar() {
             ImGui::SameLine(ImGui::GetWindowWidth() - reserved);
         }
     }
-    if (toolbarButton("help", "Help", "Reference Manual (F1)")) {
+    if (toolbarButton("help", "Help", "Reference Manual (F1)", false, true)) {
         ed.showHelp = true;
         ed.helpPage = "introduction.html";
         ed.helpHistory.clear();
     }
-    if (toolbarButton("settings", "Preferences", "Settings: safe area, diagnostics")) {
+    if (toolbarButton("settings", "Preferences", "Settings: safe area, diagnostics", false, true)) {
         ed.requestPlatformSettings = true;
     }
-    if (toolbarButton("log", "Warning", "Diagnostics and log")) {
+    if (toolbarButton("log", "Warning", "Diagnostics and log", false, true)) {
         ed.showDiagnostics = true;
     }
 

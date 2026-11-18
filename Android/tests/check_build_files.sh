@@ -259,6 +259,23 @@ grep -q 'System.loadLibrary("pocketdoombuilder")' "$java" || bad "MainActivity l
 grep -q 'add_library(pocketdoombuilder' "$cmake" || bad "CMake target name does not match the loaded library"
 note "native library name consistent"
 
+# --- signing ---------------------------------------------------------------
+# Builds must be able to use a stable key, otherwise every APK has a different
+# signature and each install needs an uninstall first (which wipes app data).
+grep -q "signingConfigs" Android/app/build.gradle \
+    || bad "Gradle has no signing config at all"
+grep -q "PDB_KEYSTORE_BASE64" .github/workflows/build_android.yml \
+    || bad "CI cannot read a signing key from the secrets"
+grep -q "setup_signing.py" .github/workflows/build_android.yml \
+    || bad "CI never decodes the signing key"
+test -f Android/tools/setup_signing.py || bad "the signing helper is missing"
+grep -qE "keystore\.properties|\*\.jks" .gitignore \
+    || bad "a keystore could be committed by accident"
+# Without a key configured the build must still work (debug signing).
+grep -q "hasReleaseKey" Android/app/build.gradle \
+    || bad "the build would fail when no keystore is configured"
+echo "  ok: signing - stable key when configured, debug key otherwise"
+
 if [ "$fail" -ne 0 ]; then
     echo "build file checks FAILED"
     exit 1
