@@ -137,6 +137,16 @@ public class MainActivity extends Activity implements GLSurfaceView.Renderer {
 
         setContentView(root);
 
+        if (!previousCrash.isEmpty()) {
+            // Last run died in native code. Show its report *before* the GL
+            // thread gets a chance to die the same way, otherwise the panel
+            // would flash and vanish and the report would be unreadable.
+            Diagnostics.log("crash", "holding the renderer back until the report is read");
+            surfaceView.onPause();
+            showOverlay("The previous run crashed - tap Continue to start anyway");
+            return;
+        }
+
         if (libraryMissing) {
             // No native library, no frames: show why straight away instead of
             // a black screen.
@@ -318,6 +328,10 @@ public class MainActivity extends Activity implements GLSurfaceView.Renderer {
             buttons.addView(overlayButton("Copy log", this::copyLog));
             buttons.addView(overlayButton("Save to Documents", this::saveLog));
             buttons.addView(overlayButton("Close", () -> overlay.setVisibility(View.GONE)));
+            buttons.addView(overlayButton("Continue", () -> {
+                overlay.setVisibility(View.GONE);
+                surfaceView.onResume();
+            }));
             overlay.addView(buttons);
 
             FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
@@ -354,7 +368,7 @@ public class MainActivity extends Activity implements GLSurfaceView.Renderer {
     }
 
     private void saveLog() {
-        String location = Diagnostics.saveToDocuments(Diagnostics.text());
+        String location = Diagnostics.saveToDocuments(Diagnostics.fullReport());
         if (location == null) {
             toast("Could not write to Documents");
             Diagnostics.log("app", "save to Documents failed");

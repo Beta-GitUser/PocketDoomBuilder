@@ -253,6 +253,19 @@ jobs:
 
       # Optional: keep a rolling pre-release so the APK can be downloaded
       # straight onto the device without logging into Actions.
+      # The rolling release should hold one APK, not one per build: drop the
+      # previous assets first so the download link is always the newest build.
+      - name: Clear previous rolling assets
+        if: ${{ steps.opts.outputs.upload_release == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release view android-latest --json assets --jq '.assets[].name' 2>/dev/null \
+            | while read -r name; do
+                [ -n "$name" ] && gh release delete-asset android-latest "$name" --yes || true
+              done
+
       - name: Upload to rolling pre-release
         if: ${{ steps.opts.outputs.upload_release == 'true' }}
         uses: softprops/action-gh-release@v3

@@ -150,6 +150,9 @@ grep -q "appendNativeLog" Android/app/src/main/cpp/src/platform_android.cpp \
     || bad "native layer never mirrors its log to Java"
 grep -q "installCrashHandler" Android/app/src/main/cpp/src/platform_android.cpp \
     || bad "native layer installs no crash handler"
+grep -q "previousCrashReport" "$java" || bad "MainActivity ignores the previous crash report"
+grep -q "fullReport" Android/app/src/main/java/com/pocketdoombuilder/Diagnostics.java \
+    || bad "Diagnostics cannot export the log of earlier runs"
 grep -q "logSink" Android/app/src/main/cpp/src/editor.cpp \
     || bad "Editor::log does not forward to the log sink"
 grep -q "last_crash.txt" Android/app/src/main/cpp/src/platform_android.cpp \

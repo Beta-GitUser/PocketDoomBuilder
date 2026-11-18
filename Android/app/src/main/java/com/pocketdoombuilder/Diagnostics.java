@@ -182,6 +182,31 @@ final class Diagnostics {
         }
     }
 
+    /**
+     * The on-screen log plus the persistent log of earlier runs, which is what
+     * is worth attaching to a bug report (a crash usually ends the run that
+     * recorded it).
+     */
+    static String fullReport() {
+        StringBuilder report = new StringBuilder(text());
+        try {
+            if (internalLog != null && internalLog.exists()) {
+                byte[] bytes = new byte[(int) Math.min(internalLog.length(), 128 * 1024)];
+                try (java.io.FileInputStream in = new java.io.FileInputStream(internalLog)) {
+                    int read = in.read(bytes);
+                    if (read > 0) {
+                        report.append("\n===== log file (all runs) =====\n");
+                        String all = new String(bytes, 0, read, StandardCharsets.UTF_8);
+                        // The tail is the interesting part.
+                        report.append(all.length() > 60000 ? all.substring(all.length() - 60000) : all);
+                    }
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return report.toString();
+    }
+
     /** Put the log on the clipboard so it can be pasted into a bug report. */
     static boolean copyToClipboard(Context context) {
         try {
@@ -190,7 +215,7 @@ final class Diagnostics {
             if (manager == null) {
                 return false;
             }
-            manager.setPrimaryClip(ClipData.newPlainText("PocketDoomBuilder log", text()));
+            manager.setPrimaryClip(ClipData.newPlainText("PocketDoomBuilder log", fullReport()));
             return true;
         } catch (Throwable t) {
             log("app", "clipboard failed: " + t);
