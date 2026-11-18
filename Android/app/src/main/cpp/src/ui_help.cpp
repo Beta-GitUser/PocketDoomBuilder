@@ -576,6 +576,11 @@ void drawAboutWindow() {
                 "Background image is by Zanieon.");
             ImGui::PopStyleColor();
             ImGui::Spacing();
+            ImGui::TextUnformatted("App icon:");
+            ImGui::SameLine();
+            ImGui::TextWrapped(
+                "Made by Madestryne (Telegram). Used with permission.");
+            ImGui::Spacing();
             if (ImGui::Button("Project page at github.com")) {
                 ed.pendingUrl = "https://github.com/jewalky/UltimateDoomBuilder";
                 ed.requestOpenUrl = true;

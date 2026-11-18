@@ -408,6 +408,68 @@ static void testUdmf() {
     CHECK(map2.linedefs[0].flags & 0x0001);
 }
 
+static void testNewMap() {
+    // The default room the editor's New Map action builds: a 256x256 square,
+    // one sector, one player start. Must be writable and readable back in
+    // every format.
+    MapSet fresh;
+    createDefaultMap(fresh, MapFormat::Doom);
+    fresh.mapName = "MAP01";
+    CHECK_EQ(fresh.vertices.size(), 4u);
+    CHECK_EQ(fresh.linedefs.size(), 4u);
+    CHECK_EQ(fresh.sidedefs.size(), 1u);
+    CHECK_EQ(fresh.sectors.size(), 1u);
+    CHECK_EQ(fresh.things.size(), 1u);
+    CHECK_EQ(fresh.things[0].type, 1); // Doom player start
+    CHECK_EQ(fresh.things[0].x, 128);
+
+    // Write it into a WAD and read it back.
+    WadFile wad;
+    wad.type = "PWAD";
+    std::string err;
+    CHECK(saveMap(wad, fresh, err));
+    CHECK(err.empty());
+    const std::vector<uint8_t> bytes = writeWad(wad);
+    WadFile wad2;
+    std::vector<std::string> errors;
+    CHECK(readWad(bytes, wad2, errors));
+    MapSet map2;
+    CHECK(loadMap(wad2, "MAP01", map2).ok);
+    CHECK_EQ(map2.vertices.size(), 4u);
+    CHECK_EQ(map2.things.size(), 1u);
+    CHECK_EQ(map2.things[0].type, 1);
+
+    // UDMF round-trip.
+    MapSet udmf;
+    createDefaultMap(udmf, MapFormat::UDMF);
+    udmf.mapName = "MAP01";
+    CHECK(saveMap(wad, udmf, err));
+    const std::vector<uint8_t> bytes2 = writeWad(wad);
+    WadFile wad3;
+    CHECK(readWad(bytes2, wad3, errors));
+    MapSet map3;
+    CHECK(loadMap(wad3, "MAP01", map3).ok);
+    CHECK_EQ(map3.format, MapFormat::UDMF);
+    CHECK_EQ(map3.things[0].type, 3001); // UDMF player start
+    CHECK_EQ(map3.things.size(), 1u);
+    CHECK_EQ(map3.sectors.size(), 1u);
+
+    // Hexen round-trip, with the BEHAVIOR lump present.
+    MapSet hexen;
+    createDefaultMap(hexen, MapFormat::Hexen);
+    hexen.mapName = "MAP01";
+    CHECK(saveMap(wad, hexen, err));
+    const std::vector<uint8_t> bytes3 = writeWad(wad);
+    WadFile wad4;
+    CHECK(readWad(bytes3, wad4, errors));
+    MapSet map4;
+    CHECK(loadMap(wad4, "MAP01", map4).ok);
+    CHECK_EQ(map4.format, MapFormat::Hexen);
+    CHECK_EQ(map4.things[0].type, 3001);
+    CHECK_EQ(map4.things.size(), 1u);
+    CHECK_EQ(map4.sectors.size(), 1u);
+}
+
 static void testListMaps() {
     const std::vector<uint8_t> bytes = makeDoomWad();
     WadFile wad;
@@ -658,6 +720,7 @@ int main() {
     testDoomSaveRoundTrip();
     testHexen();
     testUdmf();
+    testNewMap();
     testListMaps();
     testView2D();
     testPng();

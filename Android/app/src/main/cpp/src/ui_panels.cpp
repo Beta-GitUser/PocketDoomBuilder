@@ -204,6 +204,35 @@ void drawStatistics() {
 
 // --- Dockers ---------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Maps docker: the list of maps in the loaded WAD, like the desktop's
+// maplist control. Clicking a name opens that map.
+// ---------------------------------------------------------------------------
+
+void drawMapsDocker() {
+    Editor& ed = editor();
+    if (!ed.wadLoaded) {
+        ImGui::TextDisabled("No WAD is open.");
+        return;
+    }
+    ImGui::TextUnformatted("WAD: %s", ed.wadName.c_str());
+    ImGui::Separator();
+    if (ed.mapNames.empty()) {
+        ImGui::TextDisabled("This WAD contains no maps.");
+        return;
+    }
+    for (size_t i = 0; i < ed.mapNames.size(); ++i) {
+        ImGui::PushID((int)i);
+        const bool active = ed.mapOpen && ed.currentMapIndex == (int)i;
+        const bool selected = ImGui::Selectable(ed.mapNames[i].c_str(), active);
+        if (selected && !active) {
+            ed.openMapByIndex((int)i);
+            requestFitToScreen();
+        }
+        ImGui::PopID();
+    }
+}
+
 void drawUndoRedoDocker() {
     ImGui::TextDisabled("Undo / Redo history");
     ImGui::Separator();
@@ -290,6 +319,7 @@ void drawDockersPanel() {
                 ed.activeDocker = (int)i;
                 ImGui::BeginChild("##dockercontent", ImVec2(0, 0));
                 switch (dockers[i].tab) {
+                    case DockerTab::Maps: drawMapsDocker(); break;
                     case DockerTab::UndoRedo: drawUndoRedoDocker(); break;
                     case DockerTab::DrawSettings: drawDrawSettingsDocker(); break;
                     case DockerTab::TagExplorer: drawTagExplorerDocker(); break;

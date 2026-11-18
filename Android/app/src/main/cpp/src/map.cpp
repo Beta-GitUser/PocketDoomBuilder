@@ -3,6 +3,8 @@
 
 #include "map.h"
 
+#include <cstdio>
+
 #include <algorithm>
 #include <cctype>
 
@@ -72,6 +74,52 @@ const std::vector<EditModeInfo>& editModeList() {
         {EditMode::ImageExample,     "Image Example",          "tools",        10,  false},
     };
     return modes;
+}
+
+} // namespace pdb
+
+
+namespace pdb {
+
+void createDefaultMap(MapSet& map, MapFormat format) {
+    map.clear();
+    map.format = format;
+    map.udmfNamespace = "zdoom";
+
+    // A 256x256 room.
+    map.vertices = {
+        {0, 0}, {256, 0}, {256, 256}, {0, 256},
+    };
+    for (int i = 0; i < 4; ++i) {
+        Linedef ld;
+        ld.v1 = i;
+        ld.v2 = (i + 1) % 4;
+        ld.flags = 1; // blocking
+        ld.sideFront = 0;
+        ld.sideBack = -1; // outside
+        map.linedefs.push_back(ld);
+    }
+    Sidedef sd;
+    sd.sector = 0;
+    sd.texTop = "-";
+    sd.texBottom = "-";
+    sd.texMid = "STARTAN3";
+    map.sidedefs.push_back(sd);
+    Sector sec;
+    sec.floorHeight = 0;
+    sec.ceilHeight = 64;
+    sec.floorTex = "FLOOR1_1";
+    sec.ceilTex = "CEIL1_1";
+    sec.brightness = 160;
+    map.sectors.push_back(sec);
+
+    Thing player;
+    player.x = 128;
+    player.y = 128;
+    player.angle = 90; // Doom angle units: 90 = facing north
+    player.type = (format == MapFormat::Doom) ? 1 : 3001; // Doom / Hexen+ player start
+    player.flags = 0x0007; // SKILL1 | SKILL2 | SKILL3
+    map.things.push_back(player);
 }
 
 } // namespace pdb

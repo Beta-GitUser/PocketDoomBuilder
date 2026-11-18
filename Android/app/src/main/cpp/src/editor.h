@@ -52,6 +52,7 @@ struct ConsoleLine {
 // ---------------------------------------------------------------------------
 
 enum class DockerTab {
+    Maps,
     UndoRedo,
     DrawSettings,
     TagExplorer,
@@ -181,10 +182,23 @@ public:
     bool requestOpen = false;
     bool requestSave = false;
     bool requestSaveAs = false;
+    // New Map dialog state (File > New Map / the toolbar button).
+    bool requestNewMap = false;
+    std::string newMapName = "MAP01";
+    MapFormat newMapFormat = MapFormat::Doom;
 
     // --- API ---------------------------------------------------------------
 
     void log(const std::string& text, int level = 0);
+
+    // Create a new map with default geometry (a 256x256 room, one sector, a
+    // player-start thing) in the current WAD - or in a fresh in-memory PWAD
+    // when no WAD is open - and open it. `name` is used as-is when given;
+    // otherwise the next free MAPnn name is generated.
+    bool newMap(MapFormat format, const std::string& name = "");
+
+    // Next free "MAPnn" name that does not collide with the loaded WAD.
+    std::string nextMapName();
 
     // Load WAD bytes (from SAF) and open the first map.
     bool openWadFromMemory(const std::vector<uint8_t>& bytes,

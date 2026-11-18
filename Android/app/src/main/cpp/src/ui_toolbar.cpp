@@ -107,7 +107,8 @@ void drawMenuBar() {
 
     if (ImGui::BeginMenu("File")) {
         if (menuItem("New Map")) {
-            stub("New Map");
+            ed.newMapName = ed.nextMapName();
+            ed.requestNewMap = true;
         }
         if (menuItem("Open Map...", "Ctrl+O")) {
             ed.requestOpen = true;
@@ -367,7 +368,10 @@ void drawToolbar() {
     ImGui::SetCursorPos(ImVec2(2.0f * currentUiScale(), 1.0f * currentUiScale()));
 
     // File group
-    if (toolbarButton("new", "NewMap", "New Map", false, ed.mapOpen)) stub("New Map");
+    if (toolbarButton("new", "NewMap", "New Map", false, !ed.requestNewMap)) {
+        ed.newMapName = ed.nextMapName();
+        ed.requestNewMap = true;
+    }
     if (toolbarButton("open", "OpenMap", "Open Map", false)) ed.requestOpen = true;
     if (toolbarButton("save", "SaveMap", "Save Map", false, ed.mapOpen)) {
         ed.requestSave = true;

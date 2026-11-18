@@ -53,6 +53,7 @@ const std::vector<DockerInfo>& dockerList() {
     // Dockers registered by BuilderModes, TagExplorer, CommentsPanel and
     // UDBScript (Source/Plugins/*/BuilderPlug.cs).
     static const std::vector<DockerInfo> dockers = {
+        {DockerTab::Maps, "Maps"},
         {DockerTab::UndoRedo, "Undo / Redo"},
         {DockerTab::DrawSettings, "Draw Settings"},
         {DockerTab::TagExplorer, "Tag Explorer"},
@@ -109,6 +110,60 @@ bool Editor::openWadFromMemory(const std::vector<uint8_t>& bytes,
         return true;
     }
     return openMapByIndex(0);
+}
+
+std::string Editor::nextMapName() {
+    for (int i = 1; i < 1000; ++i) {
+        char buf[16];
+        std::snprintf(buf, sizeof(buf), "MAP%02d", i);
+        if (findMapHeader(wad, buf) < 0) return buf;
+    }
+    return "MAP01";
+}
+
+bool Editor::newMap(MapFormat format, const std::string& name) {
+    // No WAD open yet: start a fresh in-memory PWAD, exactly like the
+    // desktop, which creates the map inside a new WAD when none is loaded.
+    if (!wadLoaded) {
+        wad.clear();
+        wad.type = "PWAD";
+        wadLoaded = true;
+        wadName = "newmap.wad";
+        wadUri.clear();
+        log("Created a new in-memory WAD.");
+    }
+
+    const std::string mapName = name.empty() ? nextMapName() : name;
+    if (findMapHeader(wad, mapName) >= 0) {
+        log("A map named " + mapName + " already exists.", 2);
+        status = "Map already exists: " + mapName;
+        return false;
+    }
+
+    MapSet fresh;
+    createDefaultMap(fresh, format);
+    fresh.mapName = mapName;
+
+    std::string error;
+    if (!saveMap(wad, fresh, error)) {
+        log("Failed to create map: " + error, 2);
+        status = "New map failed: " + error;
+        return false;
+    }
+
+    // The WAD now contains the new map; list and open it.
+    mapNames = listMaps(wad);
+    int idx = -1;
+    for (size_t i = 0; i < mapNames.size(); ++i) {
+        if (mapNames[i] == mapName) { idx = (int)i; break; }
+    }
+    if (idx < 0) {
+        log("Created map " + mapName + " but could not reopen it.", 2);
+        return false;
+    }
+    map.clear();
+    mapOpen = false;
+    return openMapByIndex(idx);
 }
 
 bool Editor::openMapByIndex(int index) {

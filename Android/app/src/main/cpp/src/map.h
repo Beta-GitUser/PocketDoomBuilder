@@ -173,6 +173,10 @@ struct MapSet {
     }
 };
 
+// Build the default new map: a 256x256 room, one sector, one player start.
+// Used by the editor's New Map action and covered by the unit tests.
+void createDefaultMap(MapSet& map, MapFormat format);
+
 // ---------------------------------------------------------------------------
 // WAD container (Source/Core/IO/WAD.cs + Lump.cs).
 // ---------------------------------------------------------------------------
