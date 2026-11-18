@@ -774,8 +774,8 @@ public class MainActivity extends Activity implements GLSurfaceView.Renderer {
     private String decodePercent(String s) {
         try {
             return java.net.URLDecoder.decode(s, "UTF-8");
-        } catch (IllegalArgumentException e) {
-            // malformed escape sequence; return the raw segment
+        } catch (java.io.UnsupportedEncodingException | IllegalArgumentException e) {
+            // malformed escape sequence or encoding issue; return the raw segment
             return s;
         }
     }
