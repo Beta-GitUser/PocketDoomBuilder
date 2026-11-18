@@ -752,15 +752,32 @@ public class MainActivity extends Activity implements GLSurfaceView.Renderer {
     }
 
     private String displayName(Uri uri) {
-        String name = uri.getLastPathSegment();
-        if (name == null || name.isEmpty()) {
-            name = "map.wad";
+        // content:// URIs from the file picker can carry a percent-encoded
+        // path (e.g. .../tree/primary%2FDownload%2Fdoom.wad). Extract the
+        // real filename: last path segment, then decode %XX escapes.
+        String path = uri.getPath();
+        if (path == null || path.isEmpty()) {
+            path = uri.toString();
         }
-        int slash = name.lastIndexOf('/');
+        int slash = path.lastIndexOf('/');
         if (slash >= 0) {
-            name = name.substring(slash + 1);
+            path = path.substring(slash + 1);
         }
-        return name;
+        path = decodePercent(path);
+        if (path.isEmpty() || path.contains("://") || path.contains("%")) {
+            path = "map.wad";
+        }
+        return path;
+    }
+
+    /** Decode %XX escapes in a string (content:// paths encode '/' as %2F). */
+    private String decodePercent(String s) {
+        try {
+            return java.net.URLDecoder.decode(s, "UTF-8");
+        } catch (IllegalArgumentException e) {
+            // malformed escape sequence; return the raw segment
+            return s;
+        }
     }
 
     private void toast(String message) {

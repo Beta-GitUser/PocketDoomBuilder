@@ -5,7 +5,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstdio>
 
 namespace pdb {
 
@@ -110,9 +109,12 @@ void renderThing(ImDrawList* dl, const MapSet& map, const View2D& view,
     const Thing& t = map.things[(size_t)index];
     (void)map;
 
-    float radius = THING_RADIUS * view.zoom;
-    if (fixedScale) radius = THING_RADIUS * 0.5f; // fixed-size marker
-    radius = std::max(3.0f, radius);
+    // The desktop draws each Thing as a small square (its sprite frame) with
+    // a thin outline; selection and hover are rectangles around it. No
+    // arrow, no type number on the map itself.
+    float half = THING_RADIUS * view.zoom;
+    if (fixedScale) half = THING_RADIUS * 0.5f; // fixed-size marker
+    half = std::max(3.0f, half);
 
     const float cx = origin.x + view.mapToScreenX(t.x);
     const float cy = origin.y + view.mapToScreenY(t.y);
@@ -121,34 +123,24 @@ void renderThing(ImDrawList* dl, const MapSet& map, const View2D& view,
         color = applyBrightness(color, 0.95f);
     }
 
-    // Desktop draws things as a filled circle with a direction arrow.
-    dl->AddCircleFilled(ImVec2(cx, cy), radius, selected ? colors[COLOR_SELECTION] : color,
-                        std::max(8, (int)(radius * 2.0f)));
+    const ImVec2 topLeft(cx - half, cy - half);
+    const ImVec2 bottomRight(cx + half, cy + half);
 
-    // Direction indicator (Doom angle: 0 = east, CCW).
-    const double radians = (double)t.angle * (2.0 * M_PI / 2048.0);
-    const float dirX = (float)std::cos(radians);
-    const float dirY = (float)-std::sin(radians);
-    dl->AddLine(ImVec2(cx, cy),
-                ImVec2(cx + dirX * radius * 1.9f, cy + dirY * radius * 1.9f),
-                highlighted ? colors[COLOR_HIGHLIGHT] : IM_COL32(230, 230, 230, 200),
-                1.5f);
+    // Sprite-frame square: filled with the thing colour, thin outline.
+    dl->AddRectFilled(topLeft, bottomRight, color, 0);
+    dl->AddRect(topLeft, bottomRight, IM_COL32(255, 255, 255, 200), 1.0f);
+    // Centre dot so the marker stays readable at small sizes.
+    dl->AddCircleFilled(ImVec2(cx, cy), std::max(1.5f, half * 0.3f),
+                        IM_COL32(255, 255, 255, 230), 8);
 
     if (highlighted && !selected) {
-        dl->AddCircle(ImVec2(cx, cy), radius + THING_SELECT_EXTRA,
-                      colors[COLOR_HIGHLIGHT], 16, 2.0f);
+        dl->AddRect(ImVec2(cx - half - THING_SELECT_EXTRA, cy - half - THING_SELECT_EXTRA),
+                    ImVec2(cx + half + THING_SELECT_EXTRA, cy + half + THING_SELECT_EXTRA),
+                    colors[COLOR_HIGHLIGHT], 1.5f);
     } else if (selected) {
-        dl->AddCircle(ImVec2(cx, cy), radius + 2.0f, colors[COLOR_HIGHLIGHT], 16,
-                      2.0f);
-    }
-
-    // Type number, drawn only when there is room (desktop does the same).
-    if (view.zoom > 0.06f) {
-        char label[16];
-        std::snprintf(label, sizeof(label), "%d", t.type);
-        const ImVec2 size = ImGui::CalcTextSize(label);
-        dl->AddText(ImVec2(cx - size.x * 0.5f, cy + radius + 1.0f),
-                    IM_COL32(200, 200, 200, 220), label);
+        dl->AddRect(ImVec2(cx - half - 2.0f, cy - half - 2.0f),
+                    ImVec2(cx + half + 2.0f, cy + half + 2.0f),
+                    colors[COLOR_HIGHLIGHT], 2.0f);
     }
 }
 

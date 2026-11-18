@@ -30,8 +30,9 @@ void renderMap2D(ImDrawList* drawList, const MapSet& map, const View2D& view,
                  const PickResult& hover, const PickResult& selection,
                  ImVec2 origin);
 
-// Draw the thing as the desktop does: an arrow-less dot with a direction
-// indicator for direction-sensitive types, plus a type label.
+// Draw the thing as the desktop does: a small square (sprite frame) with a
+// thin outline and a centre dot; selection and hover are rectangles around
+// it. No arrow, no type number on the map itself.
 void renderThing(ImDrawList* drawList, const MapSet& map, const View2D& view,
                  const MapColors& colors, int index, bool selected,
                  bool highlighted, bool fixedScale, ImVec2 origin);

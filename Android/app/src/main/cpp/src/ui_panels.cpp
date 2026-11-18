@@ -215,7 +215,14 @@ void drawMapsDocker() {
         ImGui::TextDisabled("No WAD is open.");
         return;
     }
-    ImGui::TextUnformatted("WAD: %s", ed.wadName.c_str());
+    // The WAD name comes from the file picker's URI; never let a raw
+    // content:// path or control bytes reach the display.
+    std::string wadLabel;
+    for (char c : ed.wadName) {
+        if (c >= 32 && c < 127) wadLabel.push_back(c);
+    }
+    if (wadLabel.empty()) wadLabel = "(unnamed WAD)";
+    ImGui::Text("WAD: %s", wadLabel.c_str());
     ImGui::Separator();
     if (ed.mapNames.empty()) {
         ImGui::TextDisabled("This WAD contains no maps.");
