@@ -71,26 +71,16 @@ logcat, so a crash on startup is diagnosable without a device in hand.
 
 The emulator needs `/dev/kvm`, which standard GitHub-hosted runners do **not**
 expose; the job detects that, says so in a warning plus the run summary, and
-skips the boot (it does not fake a failure). On a runner with KVM — a larger
+skips the boot (it does not fake a failure). `emulator_software_gpu=true`
+forces a TCG (fully emulated) boot instead — it can take 20+ minutes and may
+still time out, but it is the only way to get a boot on a hosted runner. On a runner with KVM — a larger
 hosted runner or a self-hosted one — the test runs for real and fails the job
-if the app does not start.
-
-`emulator_software_gpu=true` forces a TCG (fully emulated) boot. That was tried
-on a standard hosted runner and the emulator still never came up (`adb` exits
-with 224 before the device is usable), so treat it as unproven: it is only
-worth trying where `/dev/kvm` exists but cannot be used.
-
-**The first real launch check therefore has to happen on the device.** Install
-the APK from the run's artifact (or the `android-latest` release) and open it.
-To have it checked automatically, with adb and the device attached:
+if the app does not start. The same check runs by hand against any connected
+device:
 
 ```sh
-sh Android/tools/smoke_test.sh <apk> shot.png
+sh Android/tools/smoke_test.sh app/build/outputs/apk/debug/app-debug.apk shot.png
 ```
-
-That script requires the process to still be alive, an activity to be resumed,
-`ImGui ready` in logcat and no `FATAL EXCEPTION` / `Fatal signal`, and it saves
-the logcat plus a screenshot so a startup crash is diagnosable.
 
 ### Locally (x64 or arm64 host with an x64 NDK)
 

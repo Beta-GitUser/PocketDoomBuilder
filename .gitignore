@@ -30,3 +30,6 @@ bin
 /Android/app/.cxx
 # APKs collected by the CI workflow / local builds
 /out
+
+# python bytecode from the helper scripts
+__pycache__/

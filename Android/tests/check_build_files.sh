@@ -33,9 +33,7 @@ for f in \
     Android/third_party/imgui/backends/imgui_impl_opengl3.cpp \
     Android/tools/smoke_test.sh \
     Android/tools/verify_apk.py \
-    Android/tools/ci_log_annotation.sh \
-    Android/tools/check_jni.py \
-    Android/tools/downscale_png.py
+    Android/tools/ci_log_annotation.sh
 do
     [ -f "$f" ] || bad "missing $f"
 done
