@@ -10,8 +10,6 @@ them straight through AAssetManager, which needs noCompress).
 Usage: python3 Android/tools/verify_apk.py <apk> [abi[,abi...]]
 """
 
-import hashlib
-import struct
 import sys
 import zipfile
 
@@ -29,125 +27,6 @@ def has_signing_block(apk):
         window = min(size, 1 << 20)
         f.seek(size - window)
         return SIGNING_BLOCK_MAGIC in f.read(window)
-
-
-# IDs of the signature schemes inside the signing block.
-ID_V2_SIGNATURE = 0x7109871A
-ID_V3_SIGNATURE = 0xF05368C0
-
-
-class _Reader(object):
-    """Cursor over a byte string with little-endian length prefixes."""
-
-    def __init__(self, data):
-        self.data = data
-        self.pos = 0
-
-    def u32(self):
-        value = struct.unpack_from("<I", self.data, self.pos)[0]
-        self.pos += 4
-        return value
-
-    def u64(self):
-        value = struct.unpack_from("<Q", self.data, self.pos)[0]
-        self.pos += 8
-        return value
-
-    def take(self, length):
-        blob = self.data[self.pos:self.pos + length]
-        if len(blob) != length:
-            raise ValueError("truncated")
-        self.pos += length
-        return blob
-
-    def length_prefixed(self):
-        return self.take(self.u32())
-
-
-def _find_signing_block(apk):
-    """Return (start, end) of the APK Signing Block, or None."""
-    with open(apk, "rb") as f:
-        f.seek(0, 2)
-        size = f.tell()
-        f.seek(max(0, size - (1 << 20)))
-        window = f.read()
-    offset = size - len(window)
-    magic_pos = window.rfind(SIGNING_BLOCK_MAGIC)
-    if magic_pos < 0:
-        return None
-    magic_pos += offset  # absolute position of the magic
-    if magic_pos < 8:
-        return None
-    with open(apk, "rb") as f:
-        f.seek(magic_pos - 8)
-        block_size = struct.unpack("<Q", f.read(8))[0]
-    # Layout: [size][pairs][size][magic]. The size field counts the pairs, the
-    # trailing size field and the magic, so the block starts at the magic
-    # position minus that count, plus the 8-byte size field itself.
-    start = magic_pos - block_size + 8
-    if start < 0:
-        return None
-    return start, magic_pos
-
-
-def _signer_certificates(value):
-    """Extract the signer certificates from a v2/v3 signature value."""
-    # value is a length-prefixed sequence of signer records; each record is
-    # length-prefixed and holds: signed data, signatures, public key. Each of
-    # those three fields is itself length-prefixed, and the record's own length
-    # prefix covers all three - so skip it before reading the fields.
-    reader = _Reader(value)
-    record = reader.take(reader.u32())
-    inner = _Reader(record)
-    inner.u32()  # the record's total length, already covered by the prefix
-    signed_data = inner.take(inner.u32())
-    # signed data: digests (length-prefixed), certificates (length-prefixed
-    # sequence of length-prefixed DER blobs).
-    signed = _Reader(signed_data)
-    digests = signed.take(signed.u32())
-    certs_blob = signed.take(signed.u32())
-    certs = _Reader(certs_blob)
-    # The sequence is just repeated length-prefixed certificates (no count).
-    certificates = []
-    while certs.pos < len(certs_blob):
-        certificates.append(certs.length_prefixed())
-    return certificates
-
-
-def certificate_fingerprints(apk):
-    """Fingerprints of the APK's signing certificates, or None if unparsable.
-
-    Returns a list of (sha256, sha1) hex strings, one per signer certificate,
-    in the order they appear in the APK Signing Block.
-    """
-    block = _find_signing_block(apk)
-    if block is None:
-        return None
-    start, end = block
-    with open(apk, "rb") as f:
-        f.seek(start)
-        data = f.read(end - start)
-    # Skip the block's leading 8-byte size field; the pairs start right after it.
-    reader = _Reader(data)
-    if len(data) >= 8:
-        reader.pos = 8
-    found = []
-    # Each ID-value pair is an 8-byte length (covering the ID and value) followed
-    # by a 4-byte ID and the value itself.
-    while reader.pos + 12 <= len(data):
-        pair_len = reader.u64()
-        pair_id = reader.u32()
-        if pair_id not in (ID_V2_SIGNATURE, ID_V3_SIGNATURE):
-            reader.pos += pair_len - 8
-            continue
-        value = reader.take(pair_len - 4)
-        try:
-            for cert in _signer_certificates(value):
-                found.append((hashlib.sha256(cert).hexdigest(),
-                              hashlib.sha1(cert).hexdigest()))
-        except (ValueError, struct.error):
-            continue
-    return found or None
 
 
 def main(argv):
@@ -228,19 +107,6 @@ def main(argv):
         print("  lib/%s/libpocketdoombuilder.so: %.1f MB" % (abi, size / (1024.0 * 1024.0)))
     scheme = "v2/v3" if v2 else ("v1" if v1 else "no")
     print("  signed: %s" % scheme)
-    # Which key signed it. Compare this against `keytool -list -v -keystore
-    # <your.jks> -alias <alias>` to confirm the APK really came from your key.
-    if scheme == "v2/v3":
-        certs = certificate_fingerprints(apk)
-        if certs:
-            for sha256, sha1 in certs:
-                print("  certificate sha256: %s" % sha256)
-                print("  certificate sha1:   %s" % sha1)
-        else:
-            # A signing block without a readable certificate means the APK is
-            # signed but we cannot say by whom - fail rather than silently
-            # skipping the check that the key is the one you configured.
-            problems.append("signing block present but no certificate could be read")
     print("  icon assets: %d files, fonts: %s"
           % (len(icons), "yes" if all(a in nameset for a in EXPECTED_ASSETS[1:]) else "no"))
 

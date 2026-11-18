@@ -41,11 +41,13 @@ def main() -> int:
     except (binascii.Error, ValueError) as error:
         fail(f"PDB_KEYSTORE_BASE64 is not valid base64 ({error})")
 
-    # A JKS and a PKCS#12 keystore are both single binary blobs that start with
-    # a magic number; catching a truncated paste here saves a confusing Gradle
-    # error several minutes later.
+    # A JKS starts with FE ED FE ED, a PKCS#12 with 30 82. Warn on anything else
+    # but still hand the file to Gradle: the keystore format check is Gradle's
+    # job, and failing the whole build here costs minutes for a message that
+    # Gradle will print anyway.
     if blob[:4] not in (b"\xfe\xed\xfe\xed", b"\xce\xce\xce\xce") and blob[:4] != b"\x30\x82":
-        fail("PDB_KEYSTORE_BASE64 does not decode to a JKS/PKCS#12 keystore")
+        print("setup_signing: warning: the decoded blob does not look like a "
+              "JKS/PKCS#12 keystore; Gradle may reject it.", file=sys.stderr)
 
     missing = [
         name
