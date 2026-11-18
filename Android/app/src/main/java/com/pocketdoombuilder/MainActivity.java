@@ -16,6 +16,7 @@ import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.WindowInsets;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.Button;
@@ -228,8 +229,8 @@ public class MainActivity extends Activity implements GLSurfaceView.Renderer {
             // Gesture/navigation bar and status bar, when the system reports them.
             if (Build.VERSION.SDK_INT >= 30) {
                 android.graphics.Insets bars = insets.getInsets(
-                        android.view.WindowInsets.Type.systemBars()
-                                | android.view.WindowInsets.Type.displayCutout());
+                        WindowInsets.Type.systemBars()
+                                | WindowInsets.Type.displayCutout());
                 top = Math.max(top, bars.top);
                 bottom = Math.max(bottom, bars.bottom);
                 left = Math.max(left, bars.left);
@@ -318,7 +319,7 @@ public class MainActivity extends Activity implements GLSurfaceView.Renderer {
     }
 
     /** Small gear next to ⓘ: opens the same panel on its Settings tab. */
-    private View buildSettingsButton() {
+    private Button buildSettingsButton() {
         Button button = new Button(this);
         button.setText("\u2699");
         button.setTextSize(16);
@@ -447,7 +448,7 @@ public class MainActivity extends Activity implements GLSurfaceView.Renderer {
 
     // --- Diagnostics overlay ------------------------------------------------
 
-    private View buildDiagnosticsButton() {
+    private Button buildDiagnosticsButton() {
         Button button = new Button(this);
         button.setText("ⓘ");
         button.setTextSize(16);
