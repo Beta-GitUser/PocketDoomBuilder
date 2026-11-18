@@ -8,8 +8,10 @@ Runs on the host, no Android SDK needed.
 Usage: python3 Android/tests/test_verify_apk.py
 """
 
+import hashlib
 import os
 import pathlib
+import struct
 import subprocess
 import sys
 import tempfile
@@ -20,6 +22,38 @@ VERIFY = ROOT / "Android" / "tools" / "verify_apk.py"
 
 CORE = ("AndroidManifest.xml", "classes.dex", "resources.arsc")
 ASSETS = ("assets/icons.txt", "assets/Arimo-Regular.ttf", "assets/Arimo-Bold.ttf")
+
+
+# A tiny (fake) DER certificate, used to prove the verifier can read a real
+# APK Signing Block back out of an APK.
+FAKE_CERT = bytes.fromhex(
+    "3059301306072a8648ce3d020106082a8648ce3d030107034200")
+FAKE_CERT_SHA256 = hashlib.sha256(FAKE_CERT).hexdigest()
+FAKE_CERT_SHA1 = hashlib.sha1(FAKE_CERT).hexdigest()
+
+
+def _lp(blob):
+    """Length-prefix a blob, the way the APK signing block does."""
+    return struct.pack("<I", len(blob)) + blob
+
+
+def _signing_block(cert=FAKE_CERT):
+    """Build a real APK Signing Block (v2 scheme) carrying `cert`.
+
+    Layout: [size][id-value pairs][size][magic], where each pair is
+    [8-byte length][4-byte id][value]. The v2 signature value is a
+    length-prefixed sequence of signer records; each record is
+    [len][signed data][signatures][public key], and the signed data holds
+    the digests and the certificates.
+    """
+    signed_data = _lp(b"\0" * 8) + _lp(_lp(cert))
+    record = _lp(signed_data) + _lp(b"\0" * 16) + _lp(b"\0" * 32)
+    signers = _lp(record)
+    value = _lp(signers)
+    pair_body = struct.pack("<I", 0x7109871A) + value  # v2 signature ID
+    pair = struct.pack("<Q", len(pair_body)) + pair_body
+    size = len(pair) + 8 + 16
+    return struct.pack("<Q", size) + pair + struct.pack("<Q", size) + b"APK Sig Block 42"
 
 
 def build_apk(path, abis=("arm64-v8a",), icons=150, compress=False, signed="v1"):
@@ -37,10 +71,20 @@ def build_apk(path, abis=("arm64-v8a",), icons=150, compress=False, signed="v1")
         for i in range(icons):
             z.writestr("assets/icons/icon%03d.png" % i, b"x" * 16)
     if signed == "v2":
-        # Real v2/v3 APKs carry an "APK Signing Block" just before the
-        # central directory; appending the magic is enough to detect it.
-        with open(path, "ab") as f:
-            f.write(b"\0" * 16 + b"APK Sig Block 42" + b"\0" * 16)
+        # Real v2/v3 APKs carry an "APK Signing Block" just before the central
+        # directory. Put it there (not at the end) and fix the EOCD's central
+        # directory offset, exactly as a real signer does.
+        with open(path, "rb") as f:
+            pre = f.read()
+        cd = pre.find(b"PK\x01\x02")
+        block = _signing_block()
+        with open(path, "wb") as f:
+            f.write(pre[:cd])
+            f.write(block)
+            f.write(pre[cd:])
+        with open(path, "r+b") as f:
+            f.seek(pre.rfind(b"PK\x05\x06") + len(block) + 16)
+            f.write(struct.pack("<I", cd + len(block)))
 
 
 def run(apk, *abis):
@@ -102,6 +146,14 @@ def main():
         build_apk(v2, signed="v2")
         expect("accepts an APK signed with the v2/v3 scheme only",
                run(v2, "arm64-v8a"), True, "signed: v2/v3")
+
+        # The fingerprint must be the certificate that actually signed the APK,
+        # so a build can be checked against the keystore that produced it.
+        v2_result = run(v2, "arm64-v8a")
+        expect("reports the signing certificate's fingerprints",
+               v2_result, True, "certificate sha256: " + FAKE_CERT_SHA256)
+        expect("reports the certificate's sha1 as well",
+               v2_result, True, "certificate sha1:   " + FAKE_CERT_SHA1)
 
         expect("rejects a non-APK file", run(ROOT / "README.md", "arm64-v8a"), False)
 
