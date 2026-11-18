@@ -550,6 +550,26 @@ bool platformReadAsset(const std::string& path, std::vector<uint8_t>& out) {
 }
 } // namespace pdb
 
+
+
+// ImGui asks for the work-area insets once per frame, and its main viewport work
+// rect (which the whole shell lays itself out in) is derived from them. This is
+// the supported way to keep the interface out of the status bar, display cutout
+// and gesture bar. Deliberately not in an anonymous namespace: the declaration
+// is at file scope, and an internal symbol leaves the call site undefined.
+namespace {
+ImVec4 getWorkAreaInsets(ImGuiViewport* viewport) {
+    (void)viewport;
+    return ImVec4((float)g_insetLeft, (float)g_insetTop, (float)g_insetRight,
+                  (float)g_insetBottom);
+}
+} // namespace
+
+void installWorkAreaInsets() {
+    ImGuiPlatformIO& platformIo = ImGui::GetPlatformIO();
+    platformIo.Platform_GetWindowWorkAreaInsets = getWorkAreaInsets;
+}
+
 extern "C" {
 
 // Created on the GLSurfaceView's render thread, with its context current.
@@ -641,22 +661,7 @@ Java_com_pocketdoombuilder_MainActivity_nativeSetFilesDir(JNIEnv* env, jobject t
     (void)thiz;
 }
 
-// ImGui asks for the work-area insets once per frame; ImGui's main viewport work
-// rect (which the whole shell lays itself out in) is derived from these. This is
-// the supported way to keep the interface out of the status bar, display cutout
-// and gesture bar.
-namespace {
-ImVec4 getWorkAreaInsets(ImGuiViewport* viewport) {
-    (void)viewport;
-    return ImVec4((float)g_insetLeft, (float)g_insetTop, (float)g_insetRight,
-                  (float)g_insetBottom);
-}
 
-void installWorkAreaInsets() {
-    ImGuiPlatformIO& platformIo = ImGui::GetPlatformIO();
-    platformIo.Platform_GetWindowWorkAreaInsets = getWorkAreaInsets;
-}
-} // namespace
 
 // Called from Java whenever the safe-area setting or the window insets change.
 JNIEXPORT void JNICALL

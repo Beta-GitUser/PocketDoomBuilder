@@ -42,6 +42,44 @@ g++ -std=c++17 -O1 -g -Wall -Wextra -Wno-unused-parameter \
 echo "== running unit tests"
 "$OUT/pdb_tests"
 
+echo "== linking the Android shell (undefined-symbol check)"
+# A syntax check cannot see a missing definition. This compiles platform_android.cpp
+# against the stub NDK headers in Android/tests/stubs and links it into a shared
+# object; any symbol the shell needs but does not define would have failed the real
+# NDK build, so it must show up as a reference to another repository file only.
+STUBS="$ROOT/Android/tests/stubs"
+g++ -std=c++17 -O2 -fPIC -DIMGUI_IMPL_OPENGL_ES3 -I "$STUBS" -I "$SRC" -I "$IMGUI" \
+    -I "$IMGUI/backends" -c "$SRC/platform_android.cpp" -o "$OUT/platform_android.o"
+g++ -std=c++17 -O2 -fPIC -DIMGUI_IMPL_OPENGL_ES3 -I "$STUBS" -I "$SRC" -I "$IMGUI" \
+    -I "$IMGUI/backends" -c "$ROOT/Android/tests/ndk_link_stubs.cpp" -o "$OUT/ndk_stubs.o"
+g++ -shared -o "$OUT/libshell.so" "$OUT/platform_android.o" "$OUT/ndk_stubs.o"
+python3 - "$OUT/libshell.so" <<'PYEOF'
+import subprocess, sys, re
+out = subprocess.run(["nm", "-C", "--undefined-only", sys.argv[1]],
+                     capture_output=True, text=True).stdout
+# Symbols defined in other translation units of this port are expected; what must
+# not appear is a shell symbol with no definition anywhere.
+missing = []
+for line in out.splitlines():
+    sym = line.split()[-1] if line.split() else ""
+    if not (sym.startswith("pdb::") or "installWorkArea" in sym or "Java_com_pocketdoombuilder" in sym):
+        continue
+    if any(sym.startswith(d) for d in ("pdb::editor", "pdb::Editor::", "pdb::applyTheme",
+                                       "pdb::drawMainWindow", "pdb::requestFitToScreen",
+                                       "pdb::ui::", "pdb::IconAtlas::", "pdb::View2D::",
+                                       "pdb::loadIcons", "pdb::decodePng",
+                                       "pdb::parseHelpPage", "pdb::helpHtmlToText",
+                                       "pdb::helpEscapeHtml", "pdb::theme", "pdb::gameConfigs")):
+        continue
+    missing.append(sym)
+if missing:
+    for sym in missing:
+        print("  FAIL: undefined shell symbol: %s" % sym)
+    sys.exit(1)
+print("  ok: no undefined shell symbols")
+PYEOF
+[ $? -eq 0 ] || { echo "FAIL: shell link"; exit 1; }
+
 echo "== checking the icon atlas"
 IMGUI_DIR="$ROOT/Android/third_party/imgui"
 g++ -std=c++17 -O2 -I "$SRC" -I "$IMGUI_DIR" \
