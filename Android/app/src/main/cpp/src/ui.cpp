@@ -32,6 +32,7 @@ void updateMetrics(float scale) {
     g_metrics.modeBarWidth = 30.0f * scale;
     g_metrics.infoPanelHeight = 106.0f * scale;
     g_metrics.dockerWidth = 236.0f * scale;
+    g_metrics.dockerStripHeight = 170.0f * scale;
     g_metrics.statisticsWidth = 138.0f * scale;
     g_metrics.iconSize = 16.0f * scale;
 }
@@ -57,8 +58,12 @@ void drawMainWindow(float displayWidth, float displayHeight) {
     g_portrait = portrait;
     const float sx = displayWidth / 1012.0f;
     const float sy = displayHeight / 693.0f;
-    g_uiScale = portrait ? std::max(0.55f, std::min(sx, 1.15f))
-                         : std::max(0.75f, std::min(sx, sy));
+    float scale = portrait ? std::max(0.55f, std::min(sx, 1.15f))
+                           : std::max(0.75f, std::min(sx, sy));
+    // Mobile layout adds a ~1.25x size boost on top (touch targets and
+    // legibility), clamped so a very wide screen cannot blow the layout up.
+    if (ed.mobileLayout) scale *= 1.25f;
+    g_uiScale = std::min(scale, 1.6f);
     updateMetrics(g_uiScale);
 
     // Re-apply the theme so paddings, borders and the font size follow the
@@ -81,14 +86,17 @@ void drawMainWindow(float displayWidth, float displayHeight) {
     ui::drawMenuBar();
     ui::drawToolbar();
 
-    // Middle band: mode bar | dockers | (mode controls + map view)
+    // Middle band: mode bar | dockers | (mode controls + map view).
+    // Mobile layout: the dockers panel moves to a bottom strip below the band.
     const float panelHeight =
         ed.infoPanelExpanded
             ? (ed.infoPanelHeight > 0.0f ? ed.infoPanelHeight * g_uiScale
                                          : metrics().infoPanelHeight)
             : 21.0f * g_uiScale;
+    const float dockerStrip = ed.mobileLayout ? metrics().dockerStripHeight : 0.0f;
     const float bandHeight =
-        ImGui::GetContentRegionAvail().y - panelHeight - metrics().statusHeight;
+        ImGui::GetContentRegionAvail().y - panelHeight - metrics().statusHeight -
+        dockerStrip;
     ImGui::BeginChild("##band", ImVec2(0, std::max(80.0f, bandHeight)), 0,
                       ImGuiWindowFlags_NoScrollbar);
     // MainForm: modestoolbar.Visible = maploaded; when hidden it takes no
@@ -97,7 +105,7 @@ void drawMainWindow(float displayWidth, float displayHeight) {
         ui::drawModeToolbar();
         ImGui::SameLine(0.0f, 0.0f);
     }
-    if (ed.dockerVisible && !g_portrait) {
+    if (ed.dockerVisible && !g_portrait && !ed.mobileLayout) {
         ui::drawDockersPanel();
         ImGui::SameLine(0.0f, 0.0f);
     }
@@ -107,6 +115,10 @@ void drawMainWindow(float displayWidth, float displayHeight) {
     ui::drawMapView();
     ImGui::EndChild();
     ImGui::EndChild();
+
+    if (ed.dockerVisible && ed.mobileLayout) {
+        ui::drawDockersPanelBottom();
+    }
 
     ui::drawInfoPanel();
     ui::drawStatusBar();

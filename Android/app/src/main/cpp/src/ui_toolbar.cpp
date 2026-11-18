@@ -56,6 +56,51 @@ bool toolbarButton(const char* id, const char* iconName, const char* tooltip,
     return clicked;
 }
 
+// Layout toggle button. The icon set has no desktop/mobile glyph, so the
+// button draws one: a monitor outline in desktop layout, a phone outline in
+// mobile layout (the active state is highlighted by the shared chrome).
+bool toolbarLayoutToggle() {
+    ImGui::PushID("layout");
+    const float size = 22.0f * currentUiScale();
+    const ImVec2 pos = ImGui::GetCursorScreenPos();
+    ImGui::InvisibleButton("##layoutbtn", ImVec2(size, size));
+    const bool hovered = ImGui::IsItemHovered();
+    const bool clicked = ImGui::IsItemClicked();
+
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    const bool active = editor().mobileLayout;
+    if (hovered || active) {
+        dl->AddRectFilled(pos, ImVec2(pos.x + size, pos.y + size),
+                          active ? T.highlight : T.buttonHover);
+        dl->AddRect(pos, ImVec2(pos.x + size, pos.y + size), T.border);
+    }
+    const float glyph = std::min(14.0f * currentUiScale(), size - 4.0f);
+    const ImVec2 c(pos.x + (size - glyph) * 0.5f, pos.y + (size - glyph) * 0.5f);
+    const ImU32 col = IM_COL32(255, 255, 255, 255);
+    if (active) {
+        // Phone outline: rounded body + home line.
+        const ImVec2 p1(c.x - glyph * 0.28f, c.y - glyph * 0.45f);
+        const ImVec2 p2(c.x + glyph * 0.28f, c.y + glyph * 0.45f);
+        dl->AddRect(p1, p2, col, 1.5f, 3.0f);
+        dl->AddLine(ImVec2(p1.x + 2.0f, p2.y - 2.0f),
+                    ImVec2(p2.x - 2.0f, p2.y - 2.0f), col, 1.0f);
+    } else {
+        // Monitor outline: screen + stand.
+        const ImVec2 p1(c.x - glyph * 0.45f, c.y - glyph * 0.35f);
+        const ImVec2 p2(c.x + glyph * 0.45f, c.y + glyph * 0.12f);
+        dl->AddRect(p1, p2, col, 1.5f);
+        dl->AddLine(ImVec2(c.x, p2.y), ImVec2(c.x, p2.y + glyph * 0.22f), col, 1.5f);
+        dl->AddLine(ImVec2(c.x - glyph * 0.22f, p2.y + glyph * 0.22f),
+                    ImVec2(c.x + glyph * 0.22f, p2.y + glyph * 0.22f), col, 1.5f);
+    }
+    if (hovered) {
+        ImGui::SetTooltip("Toggle mobile / desktop layout");
+    }
+    ImGui::PopID();
+    ImGui::SameLine(0.0f, 1.0f);
+    return clicked;
+}
+
 void toolbarSeparator() {
     const ImVec2 pos = ImGui::GetCursorScreenPos();
     const float h = ImGui::GetTextLineHeight() + 6.0f * currentUiScale();
@@ -278,6 +323,11 @@ void drawMenuBar() {
             ed.infoPanelExpanded = !ed.infoPanelExpanded;
             ed.infoPanelHeight = ed.infoPanelExpanded ? 300.0f : metrics().infoPanelHeight;
         }
+        if (menuItem("Mobile Layout", nullptr, true, ed.mobileLayout)) {
+            ed.mobileLayout = !ed.mobileLayout;
+            ed.status = ed.mobileLayout ? "Mobile layout on" : "Desktop layout";
+            requestFitToScreen();
+        }
         ImGui::Separator();
         if (menuItem("Script Editor...")) stub("Script Editor");
         ImGui::EndMenu();
@@ -365,8 +415,14 @@ void drawMenuBar() {
 void drawToolbar() {
     Editor& ed = editor();
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::ColorConvertU32ToFloat4(T.toolbarBg));
+    // Mobile layout: the toolbar is longer than the screen, so let it scroll
+    // (desktop keeps the fixed, non-scrolling strip).
+    const ImGuiWindowFlags toolbarFlags = ed.mobileLayout
+                                              ? ImGuiWindowFlags_None
+                                              : ImGuiWindowFlags_NoScrollbar |
+                                                    ImGuiWindowFlags_NoScrollWithMouse;
     ImGui::BeginChild("##toolbar", ImVec2(0, metrics().toolbarHeight), 0,
-                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+                      toolbarFlags);
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
     ImGui::SetCursorPos(ImVec2(2.0f * currentUiScale(), 1.0f * currentUiScale()));
 
@@ -539,8 +595,10 @@ void drawToolbar() {
         ed.showDiagnostics = true;
         ed.requestDiagnosticsLog = true;
     }
-    if (toolbarButton("quit", "Close", "Quit the app", false, true)) {
-        ed.requestQuit = true;
+    if (toolbarLayoutToggle()) {
+        ed.mobileLayout = !ed.mobileLayout;
+        ed.status = ed.mobileLayout ? "Mobile layout on" : "Desktop layout";
+        requestFitToScreen();
     }
 
     ImGui::PopStyleVar();
@@ -555,8 +613,12 @@ void drawToolbar() {
 void drawModeToolbar() {
     Editor& ed = editor();
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::ColorConvertU32ToFloat4(T.toolbarBg));
-    ImGui::BeginChild("##modebar", ImVec2(metrics().modeBarWidth, 0), 0,
-                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    // Mobile layout: the mode list is taller than the screen, so it scrolls.
+    const ImGuiWindowFlags modeFlags = ed.mobileLayout
+                                           ? ImGuiWindowFlags_None
+                                           : ImGuiWindowFlags_NoScrollbar |
+                                                 ImGuiWindowFlags_NoScrollWithMouse;
+    ImGui::BeginChild("##modebar", ImVec2(metrics().modeBarWidth, 0), 0, modeFlags);
 
     const std::vector<EditModeInfo>& modes = editModeList();
     // Icons come from the plugins' [EditMode(ButtonImage = ...)] attributes.

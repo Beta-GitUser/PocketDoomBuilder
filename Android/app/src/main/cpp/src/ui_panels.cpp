@@ -344,6 +344,40 @@ void drawDockersPanel() {
     ImGui::PopStyleColor();
 }
 
+// Mobile layout: the same dockers panel as a full-width bottom strip (tab
+// bar on top, content below), so it reads as a phone-style bottom sheet.
+void drawDockersPanelBottom() {
+    Editor& ed = editor();
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::ColorConvertU32ToFloat4(T.windowBg));
+    ImGui::BeginChild("##dockersbottom", ImVec2(0, metrics().dockerStripHeight),
+                      ImGuiChildFlags_Borders, ImGuiWindowFlags_NoScrollbar);
+
+    const std::vector<DockerInfo>& dockers = dockerList();
+    if (ImGui::BeginTabBar("##dockertabs", ImGuiTabBarFlags_None)) {
+        for (size_t i = 0; i < dockers.size(); ++i) {
+            // Only the active docker's content is laid out.
+            if (ImGui::BeginTabItem(dockers[i].title)) {
+                ed.activeDocker = (int)i;
+                ImGui::BeginChild("##dockercontent", ImVec2(0, 0));
+                switch (dockers[i].tab) {
+                    case DockerTab::Maps: drawMapsDocker(); break;
+                    case DockerTab::UndoRedo: drawUndoRedoDocker(); break;
+                    case DockerTab::DrawSettings: drawDrawSettingsDocker(); break;
+                    case DockerTab::TagExplorer: drawTagExplorerDocker(); break;
+                    case DockerTab::Comments: drawCommentsDocker(); break;
+                    case DockerTab::Scripts: drawScriptsDocker(); break;
+                }
+                ImGui::EndChild();
+                ImGui::EndTabItem();
+            }
+        }
+        ImGui::EndTabBar();
+    }
+
+    ImGui::EndChild();
+    ImGui::PopStyleColor();
+}
+
 // ---------------------------------------------------------------------------
 // Bottom info panel (console + info panels + statistics)
 // ---------------------------------------------------------------------------

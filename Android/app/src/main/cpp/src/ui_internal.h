@@ -23,6 +23,8 @@ void drawModeToolbar();
 void drawStatusBar();
 
 void drawDockersPanel();
+// Mobile layout: the dockers panel as a full-width bottom strip.
+void drawDockersPanelBottom();
 void drawInfoPanel();
 void drawMapView();
 void drawDialogs();

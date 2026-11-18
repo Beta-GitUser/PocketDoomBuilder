@@ -427,6 +427,11 @@ int main(int argc, char** argv) {
         const std::vector<uint8_t> wadBytes = buildTestWad();
         ed.openWadFromMemory(wadBytes, "preview.wad", "");
     }
+    if (std::strcmp(menuToOpen, "mobile") == 0) {
+        // Render with the mobile layout toggle on (scrollable toolbar, dockers
+        // as a bottom strip, ~1.25x UI scale).
+        ed.mobileLayout = true;
+    }
 
     g_fbW = width;
     g_fbH = height;

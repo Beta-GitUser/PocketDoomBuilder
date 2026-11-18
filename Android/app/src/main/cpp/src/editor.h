@@ -102,6 +102,9 @@ public:
     int selectedCount = 0;
 
     // --- UI state ----------------------------------------------------------
+    // Desktop vs mobile layout toggle. Mobile layout rearranges the shell for
+    // touch: scrollable toolbar, dockers as a bottom strip, ~1.25x UI scale.
+    bool mobileLayout = false;
     bool infoPanelExpanded = true; // MainForm: panelinfo starts at 106 px
     int activeDocker = 0;
     bool dockerVisible = true;

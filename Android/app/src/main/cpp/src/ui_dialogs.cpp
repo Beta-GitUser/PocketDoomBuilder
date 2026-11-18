@@ -131,6 +131,10 @@ void drawDialogs() {
                     ImGui::Checkbox("Show things", &ed.showThings);
                     ImGui::Checkbox("Fixed things scale", &ed.fixedThingsScale);
                     ImGui::Checkbox("Expanded info panel", &ed.infoPanelExpanded);
+                    if (ImGui::Checkbox("Mobile layout", &ed.mobileLayout)) {
+                        ed.status = ed.mobileLayout ? "Mobile layout on" : "Desktop layout";
+                        requestFitToScreen();
+                    }
                     ImGui::EndTabItem();
                 }
                 if (ImGui::BeginTabItem("Editing")) {

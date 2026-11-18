@@ -36,6 +36,7 @@ struct Metrics {
     float modeBarWidth = 30.0f;    // modestoolbar
     float infoPanelHeight = 106.0f;// panelinfo (heightpanel1)
     float dockerWidth = 236.0f;    // dockerspanel
+    float dockerStripHeight = 170.0f; // dockers panel as a mobile bottom strip
     float statisticsWidth = 138.0f;// statistics
     float iconSize = 16.0f;        // ScaledIconSize at 96 DPI
 };
