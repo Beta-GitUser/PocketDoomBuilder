@@ -429,6 +429,20 @@ static void testNewMap() {
     std::string err;
     CHECK(saveMap(wad, fresh, err));
     CHECK(err.empty());
+
+    // Regression: the map's data lumps must follow the header in write
+    // order (THINGS first), because listMaps() detects a map header by
+    // the lump that follows it. putMapLump used to insert every new lump
+    // right after the header, reversing the order and hiding the map.
+    CHECK_EQ(wad.lumps.size(), 6u);
+    CHECK(wad.lumps[0].name == "MAP01");
+    CHECK(wad.lumps[1].name == "THINGS");
+    CHECK(wad.lumps[2].name == "VERTEXES");
+    CHECK(wad.lumps[3].name == "LINEDEFS");
+    CHECK(wad.lumps[4].name == "SIDEDEFS");
+    CHECK(wad.lumps[5].name == "SECTORS");
+    CHECK(listMaps(wad).size() == 1u);
+    CHECK(listMaps(wad)[0] == "MAP01");
     const std::vector<uint8_t> bytes = writeWad(wad);
     WadFile wad2;
     std::vector<std::string> errors;

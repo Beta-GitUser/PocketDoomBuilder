@@ -153,7 +153,7 @@ void drawMenuBar() {
         }
         ImGui::Separator();
         if (menuItem("Exit")) {
-            ed.status = "Exit requested (use the system back gesture to quit)";
+            ed.requestQuit = true;
         }
         ImGui::EndMenu();
     }
@@ -346,7 +346,10 @@ void drawMenuBar() {
             ed.requestOpenUrl = true;
         }
         ImGui::Separator();
-        if (menuItem("Diagnostics and Log...")) ed.showDiagnostics = true;
+        if (menuItem("Diagnostics and Log...")) {
+            ed.showDiagnostics = true;
+            ed.requestDiagnosticsLog = true;
+        }
         if (menuItem("About PocketDoomBuilder...")) ed.showAbout = true;
         ImGui::EndMenu();
     }
@@ -513,7 +516,7 @@ void drawToolbar() {
     // toolbar is the natural home for them, and they are drawn by the same code as
     // every other button so they follow the theme, hover states and UI scale.
     {
-        const float buttons = 3.0f;
+        const float buttons = 4.0f;
         const float size = 22.0f * currentUiScale();
         const float spacing = 1.0f * currentUiScale();
         const float reserved = buttons * size + (buttons - 1.0f) * spacing +
@@ -529,10 +532,15 @@ void drawToolbar() {
         ed.helpHistory.clear();
     }
     if (toolbarButton("settings", "Preferences", "Settings: safe area, diagnostics", false, true)) {
+        ed.showDiagnostics = true;
         ed.requestPlatformSettings = true;
     }
     if (toolbarButton("log", "Warning", "Diagnostics and log", false, true)) {
         ed.showDiagnostics = true;
+        ed.requestDiagnosticsLog = true;
+    }
+    if (toolbarButton("quit", "Close", "Quit the app", false, true)) {
+        ed.requestQuit = true;
     }
 
     ImGui::PopStyleVar();

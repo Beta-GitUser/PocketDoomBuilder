@@ -419,8 +419,14 @@ int main(int argc, char** argv) {
     }
 
     Editor& ed = editor();
-    const std::vector<uint8_t> wadBytes = buildTestWad();
-    ed.openWadFromMemory(wadBytes, "preview.wad", "");
+    if (std::strcmp(menuToOpen, "newmap") == 0) {
+        // Reproduce the editor's New Map path: no WAD open, create a default
+        // map and render it (used to screenshot the created geometry).
+        ed.newMap(MapFormat::Doom, "MAP01");
+    } else {
+        const std::vector<uint8_t> wadBytes = buildTestWad();
+        ed.openWadFromMemory(wadBytes, "preview.wad", "");
+    }
 
     g_fbW = width;
     g_fbH = height;
@@ -449,6 +455,10 @@ int main(int argc, char** argv) {
         ed.showShortcuts = true;
     } else if (std::strcmp(windowToOpen, "about") == 0) {
         ed.showAbout = true;
+    } else if (std::strcmp(windowToOpen, "diagnostics") == 0) {
+        // Render the Diagnostics and Log window open (used to check it stays
+        // open; notifyJava() used to clear the window-open flag).
+        ed.showDiagnostics = true;
     }
 
     // The map view needs one frame to learn the viewport size before it can

@@ -189,7 +189,15 @@ void putMapLump(WadFile& wad, int headerIdx, const std::string& name,
     WadLump lump;
     lump.name = n;
     lump.data = std::move(data);
-    wad.lumps.insert(wad.lumps.begin() + headerIdx + 1, std::move(lump));
+    // Insert after the last lump this map already owns, so repeated
+    // putMapLump calls keep the order they were called in (THINGS must
+    // follow the header in a Doom WAD). Inserting at headerIdx + 1 every
+    // time would reverse the order.
+    if (owned.empty()) {
+        wad.lumps.insert(wad.lumps.begin() + headerIdx + 1, std::move(lump));
+    } else {
+        wad.lumps.insert(wad.lumps.begin() + owned.back() + 1, std::move(lump));
+    }
 }
 
 } // namespace pdb

@@ -121,7 +121,9 @@ def main():
             ("exportManual", "(Ljava/lang/String;)V"),
             ("copyLogToClipboard", "()V"),
             ("saveLogToDocuments", "()V"),
-            ("setSafeArea", "(Z)V")):
+            ("setSafeArea", "(Z)V"),
+            # File > Quit / toolbar Quit button.
+            ("finishApp", "()V")):
         if not re.search(r"public\s+void\s+%s\s*\(" % name, JAVA.read_text()):
             problems.append("MainActivity is missing the public callback %s%s"
                             % (name, signature))

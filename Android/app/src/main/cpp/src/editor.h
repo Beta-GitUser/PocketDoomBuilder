@@ -123,6 +123,11 @@ public:
     bool showHelpIndex = true;
     bool showShortcuts = false;
     bool showDiagnostics = false;
+    // Request flag for the JNI side: notifyJava() consumes it (calls Java's
+    // showDiagnosticsPanel to push the log/settings into the native UI).
+    // Kept separate from showDiagnostics, which is purely the window-open
+    // flag used by ImGui::Begin.
+    bool requestDiagnosticsLog = false;
     std::string helpPage = "introduction.html";
     std::string helpAnchor;              // "#section" within helpPage
     std::string helpPending;             // set to open on the next frame
@@ -136,6 +141,8 @@ public:
     bool requestOpenConfigFolder = false;
     bool requestPlatformDiagnostics = false;
     bool requestPlatformSettings = false;
+    // File > Quit: ask the Java side to finish the activity.
+    bool requestQuit = false;
     // Diagnostics window: the log text is pushed in by the Java side, and the
     // safe-area toggle is a platform setting the Java side owns.
     std::string diagnosticsText = "(no log yet)";

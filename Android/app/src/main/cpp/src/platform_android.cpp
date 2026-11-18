@@ -399,9 +399,9 @@ void uploadIconTexture() {
 void notifyJava(JNIEnv* env, jobject activity) {
     pdb::Editor& ed = pdb::editor();
     if (!ed.requestOpen && !ed.requestSave && !ed.requestSaveAs && !ed.requestOpenUrl &&
-        !ed.showDiagnostics && !ed.requestOpenConfigFolder && !ed.requestExportManual &&
-        !ed.requestPlatformSettings && !ed.requestLog && !ed.requestSaveLog &&
-        !ed.requestSafeAreaChange) {
+        !ed.requestDiagnosticsLog && !ed.requestOpenConfigFolder && !ed.requestExportManual &&
+        !ed.requestPlatformSettings && !ed.requestPlatformDiagnostics && !ed.requestLog &&
+        !ed.requestSaveLog && !ed.requestSafeAreaChange && !ed.requestQuit) {
         return;
     }
 
@@ -428,9 +428,9 @@ void notifyJava(JNIEnv* env, jobject activity) {
         if (m) env->CallVoidMethod(activity, m);
         if (env->ExceptionCheck()) env->ExceptionClear();
     }
-    if (ed.showDiagnostics) {
+    if (ed.requestDiagnosticsLog) {
         jmethodID m = env->GetMethodID(clazz, "showDiagnosticsPanel", "()V");
-        ed.showDiagnostics = false;
+        ed.requestDiagnosticsLog = false;
         if (m) env->CallVoidMethod(activity, m);
         if (env->ExceptionCheck()) env->ExceptionClear();
     }
@@ -444,6 +444,20 @@ void notifyJava(JNIEnv* env, jobject activity) {
     if (ed.requestPlatformSettings) {
         jmethodID m = env->GetMethodID(clazz, "showDiagnosticsPanel", "()V");
         ed.requestPlatformSettings = false;
+        if (m) env->CallVoidMethod(activity, m);
+        if (env->ExceptionCheck()) env->ExceptionClear();
+    }
+    // File > Quit: the Java side finishes the activity.
+    if (ed.requestQuit) {
+        jmethodID m = env->GetMethodID(clazz, "finishApp", "()V");
+        ed.requestQuit = false;
+        if (m) env->CallVoidMethod(activity, m);
+        if (env->ExceptionCheck()) env->ExceptionClear();
+    }
+    // "Refresh" in the diagnostics window: pull a fresh copy of the log.
+    if (ed.requestPlatformDiagnostics) {
+        jmethodID m = env->GetMethodID(clazz, "showDiagnosticsPanel", "()V");
+        ed.requestPlatformDiagnostics = false;
         if (m) env->CallVoidMethod(activity, m);
         if (env->ExceptionCheck()) env->ExceptionClear();
     }

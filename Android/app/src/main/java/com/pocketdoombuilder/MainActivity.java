@@ -603,6 +603,15 @@ public class MainActivity extends Activity implements GLSurfaceView.Renderer {
     }
 
     /**
+     * Called from Help > Quit (or the toolbar) to close the app.
+     */
+    @SuppressWarnings("unused")
+    public void finishApp() {
+        Diagnostics.log("app", "finishApp: finishing the activity");
+        runOnUiThread(() -> finish());
+    }
+
+    /**
      * Called from Help > Diagnostics and Log (or the toolbar) to refresh the
      * native window's copy of the log.
      */
