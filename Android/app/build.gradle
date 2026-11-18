@@ -1,0 +1,91 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.pocketdoombuilder'
+    compileSdk 35
+    // Pinned so Gradle downloads the exact NDK the CI workflow installs.
+    // (Google only ships x64 host builds of the NDK, hence the GitHub Actions
+    // build for arm64-only workstations.)
+    ndkVersion '27.0.12077973'
+
+    defaultConfig {
+        applicationId "com.pocketdoombuilder"
+        minSdk 24
+        targetSdk 35
+        versionCode 1
+        versionName "0.1.0"
+
+        externalNativeBuild {
+            cmake {
+                // -std=c++17 is also set in CMakeLists.txt; repeating it here
+                // keeps the flag in the per-ABI compile commands that AGP
+                // hands to the IDE. (The STL is left at AGP's default: nothing
+                // in the port throws or uses RTTI, so no libc++_shared.so
+                // needs to ship in the APK.)
+                cppFlags "-std=c++17"
+            }
+        }
+        ndk {
+            // 64-bit by default: large maps need the address space. The CI
+            // workflow can rewrite this line via Android/tools/set_abis.py.
+            abiFilters 'arm64-v8a', 'x86_64'
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path file('src/main/cpp/CMakeLists.txt')
+            version '3.22.1'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'),
+                    'proguard-rules.pro'
+            // Signed with the debug key so manual CI builds produce an
+            // installable APK without a keystore in the repository. Replace
+            // with a real signingConfig when you have one.
+            signingConfig = signingConfigs.debug
+        }
+        debug {
+            debuggable true
+            // Debug builds are what CI ships, and they were *not* optimised:
+            // the native library ran at -O0, which made startup work (decoding
+            // 295 PNGs, packing the atlas) about 20x slower than it needs to
+            // be - 30 s of black screen on a Mali-G52. -O2 plus a sane
+            // re-optimisation of what optimises cleanly fixes that while
+            // keeping the build debuggable and unstripped (the hang watchdog
+            // needs symbols).
+            externalNativeBuild {
+                cmake {
+                    cppFlags "-std=c++17 -O2"
+                }
+            }
+            packagingOptions {
+                jniLibs {
+                    keepDebugSymbols += '**/*.so'
+                }
+            }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    androidResources {
+        // The icon PNGs and fonts are read straight out of the asset manager,
+        // so keep them uncompressed. (Method form: `noCompress += [...]` would
+        // need a setter that the AndroidResources DSL does not expose.)
+        noCompress 'png', 'ttf', 'txt'
+    }
+}
+
+dependencies {
+    implementation 'androidx.annotation:annotation:1.8.2'
+}
