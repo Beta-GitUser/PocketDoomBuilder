@@ -62,7 +62,7 @@ python3 "$ROOT/Android/tests/test_verify_apk.py"
 
 if [ "${1:-}" = "--preview" ] || [ "${2:-}" = "--preview" ]; then
     echo "== building headless preview renderer"
-    UI_SRC="$SRC/editor.cpp $SRC/helpdoc.cpp $SRC/icons.cpp $SRC/render2d.cpp \
+    UI_SRC="$SRC/editor.cpp $SRC/icons.cpp $SRC/render2d.cpp \
 $SRC/theme.cpp $SRC/ui.cpp $SRC/ui_dialogs.cpp $SRC/ui_help.cpp $SRC/ui_mapview.cpp \
 $SRC/ui_panels.cpp $SRC/ui_toolbar.cpp"
     g++ -std=c++17 -O2 -Wall \

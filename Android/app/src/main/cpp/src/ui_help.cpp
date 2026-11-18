@@ -146,59 +146,6 @@ void helpBack(Editor& ed) {
     ed.helpAnchor.clear();
 }
 
-// Draw one span as a whole item; returns true when it was clicked (a link).
-bool drawSpan(const HelpSpan& span, float wrapWidth) {
-    ImGuiStyle& style = ImGui::GetStyle();
-    const bool isLink = !span.link.empty();
-    ImVec4 color = ImGui::ColorConvertU32ToFloat4(T.text);
-    switch (span.style) {
-        case HelpStyle::Title:
-            color = ImGui::GetStyleColorVec4(ImGuiCol_Text);
-            break;
-        case HelpStyle::Heading2:
-        case HelpStyle::Heading3:
-            color = ImGui::ColorConvertU32ToFloat4(T.text);
-            break;
-        case HelpStyle::TableHead:
-            color = ImGui::ColorConvertU32ToFloat4(T.text);
-            break;
-        case HelpStyle::Code:
-            color = ImVec4(0.25f, 0.45f, 0.20f, 1.0f);
-            break;
-        default:
-            break;
-    }
-    if (isLink) color = ImVec4(0.10f, 0.35f, 0.75f, 1.0f);
-
-    ImFont* font = nullptr;
-    if (span.style == HelpStyle::Title || span.style == HelpStyle::Heading2 ||
-        span.style == HelpStyle::Heading3 || span.bold) {
-        font = editor().fontBold;
-    }
-    if (font != nullptr) ImGui::PushFont(font);
-
-    const std::string label = span.text;
-    if (span.codeFont || span.style == HelpStyle::Code) {
-        ImGui::PushStyleColor(ImGuiCol_Text, color);
-        ImGui::TextUnformatted(label.c_str());
-        ImGui::PopStyleColor();
-    } else {
-        ImGui::PushStyleColor(ImGuiCol_Text, color);
-        ImGui::TextWrapped("%s", label.c_str());
-        ImGui::PopStyleColor();
-    }
-
-    bool clicked = false;
-    if (isLink && ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("%s", span.link.c_str());
-        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) clicked = true;
-    }
-    if (font != nullptr) ImGui::PopFont();
-    (void)wrapWidth;
-    (void)style;
-    return clicked;
-}
-
 // Word-level flow layout.
 //
 // A manual line is a sequence of styled runs (a sentence with a bold word and a
