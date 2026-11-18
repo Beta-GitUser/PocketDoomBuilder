@@ -98,6 +98,31 @@ Dear ImGui (v1.92.9b-docking, docking branch) is vendored in
 `Android/third_party/imgui`, so no network access is needed during the build
 beyond Gradle's own dependency resolution.
 
+## When the app shows nothing
+
+The app reports on itself, because on a phone there is no terminal to look at.
+
+* **ⓘ button** (top-right corner, always present) opens a diagnostics panel with
+  the startup log: device/ABI, whether the native library loaded, the GL
+  version/renderer the device granted, whether the surface was created, the
+  first frame, and every console line the editor produced (each init stage of
+  the native side is logged too).
+* **Copy log** puts it on the clipboard; **Save to Documents** writes
+  `Documents/PocketDoomBuilder/PocketDoomBuilder-<timestamp>.txt`, which both
+  buttons fill with the log of *all* runs, not just the current process.
+* The panel opens **by itself** when the native library fails to load, when a
+  JNI call throws, when the context is not OpenGL ES 3, or when nothing has been
+  drawn 4 seconds after start.
+* A native crash (`SIGSEGV`/`SIGBUS`/`SIGILL`/`SIGFPE`/`SIGABRT`) is caught and
+  written to `last_crash.txt` in the app's files directory, with the signal,
+  the fault address and the init stage it died in. The **next** launch shows
+  that report before starting the renderer (with a *Continue* button), so a
+  crash that reproduces reliably cannot hide its own evidence.
+
+So if the screen is black: tap ⓘ, tap *Copy log*, and paste it into the issue
+or chat. If the app dies instantly, open it again and the crash report is on
+screen; use *Save to Documents* to keep it.
+
 ## Running the checks without a device
 
 The platform-independent code (WAD/map codecs, view maths, PNG decoder) plus

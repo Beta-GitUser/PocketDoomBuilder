@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
+import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.os.Build;
 import android.os.Bundle;
@@ -126,7 +127,9 @@ public class MainActivity extends Activity implements GLSurfaceView.Renderer {
 
         surfaceView = new GLSurfaceView(this);
         surfaceView.setEGLContextClientVersion(3);
-        surfaceView.setEGLConfigChooser(8, 8, 8, 8, 0, 0);
+        // No explicit setEGLConfigChooser: the library default is the most
+        // widely supported configuration. Asking for 8/8/8/8 makes some
+        // devices fail to pick a config, which shows up as a black screen.
         surfaceView.setRenderer(this);
         surfaceView.setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
         surfaceView.setOnTouchListener(this::handleTouch);
@@ -235,7 +238,23 @@ public class MainActivity extends Activity implements GLSurfaceView.Renderer {
 
     @Override
     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
-        Diagnostics.log("gl", "surface created");
+        // The ImGui backend here is the OpenGL ES 3 one; if the device hands
+        // back an ES 2.0 context nothing can be drawn, so record exactly what
+        // was granted.
+        try {
+            String version = GLES20.glGetString(GLES20.GL_VERSION);
+            String renderer = GLES20.glGetString(GLES20.GL_RENDERER);
+            String vendor = GLES20.glGetString(GLES20.GL_VENDOR);
+            Diagnostics.log("gl", "surface created: version=" + version
+                    + " renderer=" + renderer + " vendor=" + vendor);
+            if (version == null || !version.startsWith("OpenGL ES 3")) {
+                Diagnostics.log("fatal", "the context is not OpenGL ES 3 (" + version
+                        + "); the renderer requires ES 3.0");
+                handler.post(() -> showOverlay("This device did not provide OpenGL ES 3"));
+            }
+        } catch (Throwable t) {
+            Diagnostics.log("gl", "could not query the GL strings: " + t);
+        }
         try {
             nativeCreate(getAssets(), surfaceView.getWidth(), surfaceView.getHeight());
             nativeCreated = true;
