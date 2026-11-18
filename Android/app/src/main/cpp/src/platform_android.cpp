@@ -119,9 +119,7 @@ void mirrorLog(const std::string& text, int level) {
     JNIEnv* env = nullptr;
     bool attached = false;
     if (g_vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
-        void* envRaw = nullptr;
-        if (g_vm->AttachCurrentThread(&envRaw, nullptr) != JNI_OK) return;
-        env = reinterpret_cast<JNIEnv*>(envRaw);
+        if (g_vm->AttachCurrentThread(&env, nullptr) != JNI_OK) return;
         attached = true;
     }
     jstring line = env->NewStringUTF(text.c_str());
