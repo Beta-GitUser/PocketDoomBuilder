@@ -1,0 +1,59 @@
+# PocketDoomBuilder — reference manual index.
+# Mirrors Help/Contents.hhc (the desktop's table of contents), minus the
+# GZDoom Builder pages under gzdb/ which this repository does not ship.
+# Format: <indent> <page file> | <title>
+introduction.html | Introduction
+terminology.html | Terminology
+userinterface.html | User Interface
+userinterface.html | About the User Interface
+w_mainwindow.html | Main Window
+w_customfields.html | Custom Fields Editor
+w_errorsandwarnings.html | Errors and Warnings Window
+w_gameconfigurations.html | Game Configurations Window
+w_gridsetup.html | Grid Setup Window
+w_imagesbrowser.html | Image Browser Window
+w_linedefedit.html | Linedef Properties Window
+w_mapoptions.html | Map Options Window
+w_openmapoptions.html | Open Map Window
+w_preferences.html | Preferences Window
+w_resourceoptions.html | Resource Options Window
+w_scripteditor.html | Script Editor Window
+w_sectoredit.html | Sector Properties Window
+w_textureset.html | Texture Sets Window
+w_thingedit.html | Thing Properties Window
+w_thingsfilters.html | Things Filters Window
+w_vertexedit.html | Vertex Properties Window
+editingmodes.html | Editing Modes
+editingmodes.html | About Editing Modes
+e_curvelinedefs.html | Curve Linedefs Mode
+e_drawgeometry.html | Draw Geometry Mode
+e_editselection.html | Edit Selection Mode
+e_findreplace.html | Find & Replace Mode
+e_linedefs.html | Linedefs Mode
+e_makesectors.html | Make Sectors Mode
+e_mapanalysis.html | Map Analysis Mode
+e_sectors.html | Sectors Mode
+e_things.html | Things Mode
+e_vertices.html | Vertices Mode
+e_visual.html | Visual Mode
+configurations.html | Configurations
+configurations.html | About Configurations
+configstructure.html | Configuration Syntax
+compilerconfigs.html | Compiler Configurations
+compilerconfigs.html | About Compiler Configurations
+gameconfigs.html | Game Configurations
+gameconfigs.html | About Game Configurations
+gc_basicsettings.html | Basic Settings
+gc_formatsettings.html | Map Format Settings
+gc_resourcesettings.html | Resource Settings
+gc_sectorsettings.html | Sectors Settings
+gc_linedefsettings.html | Linedefs Settings
+gc_sidedefsettings.html | Sidedef Settings
+gc_thingsettings.html | Things Settings
+gc_argumentsettings.html | Action Argument Settings
+scriptingconfigs.html | Scripting Configurations
+scriptingconfigs.html | About Scripting Configurations
+gc_decoratekeys.html | DECORATE keys
+gz_introduction.html | GZDoom Builder manual
+commandlineparams.html | Command Line Parameters
+systemrequirements.html | System Requirements
