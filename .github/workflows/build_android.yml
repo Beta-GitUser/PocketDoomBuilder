@@ -1,0 +1,402 @@
+name: Build Android APK
+
+# Manual build for the PocketDoomBuilder Android port.
+#
+# Everything runs on GitHub-hosted x64 runners, which is what makes this
+# usable from an arm64-only workstation: Google does not ship arm64 Linux NDK
+# builds, so the APK has to be produced here.
+#
+# Run it from the Actions tab (or `gh workflow run "Build Android APK"`).
+# The finished APK is attached as a build artifact and, for non-PR runs, also
+# uploaded to a rolling pre-release named "android-latest".
+
+on:
+  # Also build automatically when the port changes, so a broken APK build is
+  # caught without anyone remembering to press the button.
+  push:
+    paths:
+      - 'Android/**'
+      - '.github/workflows/build_android.yml'
+  pull_request:
+    paths:
+      - 'Android/**'
+      - '.github/workflows/build_android.yml'
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Gradle build type'
+        type: choice
+        options: [debug, release]
+        default: debug
+      abis:
+        description: 'ABIs to build (arm64 for devices, x86_64 for emulators)'
+        type: choice
+        options:
+          - 'arm64-v8a'
+          - 'arm64-v8a,x86_64'
+        default: 'arm64-v8a'
+      run_host_tests:
+        description: 'Run host unit tests + shell preview before building'
+        type: boolean
+        default: true
+      upload_release:
+        description: 'Upload APK to the rolling "android-latest" pre-release'
+        type: boolean
+        default: false
+      run_emulator_smoke_test:
+        description: 'Boot an x86_64 emulator and check the APK actually starts (slow)'
+        type: boolean
+        default: false
+      emulator_software_gpu:
+        description: 'Try the emulator even without /dev/kvm (qemu TCG, very slow, may time out)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Fast host-side checks: the platform-independent code (WAD/map codecs,
+  # view maths, PNG decoder) and the whole ImGui shell compile and run on the
+  # runner without the NDK. Failing here saves a long APK build.
+  # ---------------------------------------------------------------------------
+  host-tests:
+    name: Host tests (x64)
+    # Runs on manual builds when asked for, and always on push/PR.
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.run_host_tests }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Compile and run unit tests + preview
+        shell: bash
+        run: |
+          set -o pipefail
+          sh Android/tests/run_tests.sh --preview 2>&1 | tee /tmp/pdb-ci.log
+
+      - name: Publish failure log as an annotation
+        if: failure()
+        run: sh Android/tools/ci_log_annotation.sh /tmp/pdb-ci.log "host tests failed"
+
+      - name: Upload shell screenshot
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: shell-preview
+          path: Android/tools/preview.png
+          if-no-files-found: warn
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # The real build: NDK + CMake + Gradle, producing an installable APK.
+  # ---------------------------------------------------------------------------
+  build-apk:
+    name: Build APK
+    needs: host-tests
+    # `needs` is skipped when host-tests is skipped, so allow that case.
+    if: ${{ always() && (needs.host-tests.result == 'success' || needs.host-tests.result == 'skipped') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      # Cheap static checks of the Gradle/CMake wiring, so an obviously broken
+      # build script fails in seconds instead of after the SDK download.
+      - name: Pre-flight build file checks
+        shell: bash
+        run: |
+          set -o pipefail
+          sh Android/tests/check_build_files.sh 2>&1 | tee /tmp/pdb-ci.log
+
+      # Inputs are empty for push/PR runs, so resolve sensible defaults once.
+      - name: Resolve build options
+        id: opts
+        env:
+          IN_BUILD_TYPE: ${{ inputs.build_type }}
+          IN_ABIS: ${{ inputs.abis }}
+          IN_UPLOAD: ${{ inputs.upload_release }}
+        run: |
+          set -euo pipefail
+          BUILD_TYPE="${IN_BUILD_TYPE:-debug}"
+          ABIS="${IN_ABIS:-arm64-v8a}"
+          UPLOAD="${IN_UPLOAD:-false}"
+          # Push/PR builds never touch the rolling release.
+          if [ "${GITHUB_EVENT_NAME}" != "workflow_dispatch" ]; then
+            UPLOAD=false
+          fi
+          {
+            echo "build_type=$BUILD_TYPE"
+            echo "abis=$ABIS"
+            echo "upload_release=$UPLOAD"
+          } >> "$GITHUB_OUTPUT"
+          echo "build_type=$BUILD_TYPE abis=$ABIS upload_release=$UPLOAD"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          # caches ~/.gradle and validates the wrapper distribution
+          cache-read-only: false
+
+      - name: Install platform, build tools and NDK r27
+        run: |
+          set -euo pipefail
+          # setup-android already accepted the licences and installed
+          # platform-tools, so only the build-specific packages are missing.
+          sdkmanager --install \
+            "platforms;android-35" \
+            "build-tools;35.0.0" \
+            "cmake;3.22.1" \
+            "ndk;27.0.12077973"
+          # AGP finds the NDK through the SDK itself (ndkVersion in
+          # app/build.gradle); exporting the usual variables just makes the
+          # logs and any stray invocation point at the same install.
+          sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/.android/sdk}}"
+          echo "ANDROID_NDK_HOME=$sdk_root/ndk/27.0.12077973" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ROOT=$sdk_root/ndk/27.0.12077973" >> "$GITHUB_ENV"
+
+      - name: Show toolchain
+        run: |
+          java -version
+          echo "SDK root: ${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/.android/sdk}}"
+          echo "NDK root: $ANDROID_NDK_ROOT"
+          ls "$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt" || true
+          ls "$ANDROID_SDK_ROOT/cmake" || true
+
+      - name: Configure ABIs
+        env:
+          ABIS: ${{ steps.opts.outputs.abis }}
+        run: python3 Android/tools/set_abis.py "$ABIS"
+
+      - name: Build
+        working-directory: Android
+        env:
+          BUILD_TYPE: ${{ steps.opts.outputs.build_type }}
+        run: |
+          set -euo pipefail
+          GRADLE_ARGS=(--no-daemon --stacktrace)
+          # tee so a failure can be summarised to the log that the
+          # annotation step publishes; pipefail keeps Gradle's exit status.
+          set -o pipefail
+          if [ "$BUILD_TYPE" = "release" ]; then
+            ./gradlew "${GRADLE_ARGS[@]}" assembleRelease 2>&1 | tee /tmp/pdb-ci.log
+          else
+            ./gradlew "${GRADLE_ARGS[@]}" assembleDebug 2>&1 | tee /tmp/pdb-ci.log
+          fi
+
+      # Every step that can fail logs into /tmp/pdb-ci.log so the annotation
+      # step can report the actual reason through the API.
+      - name: Publish failure log as an annotation
+        if: failure()
+        run: sh Android/tools/ci_log_annotation.sh /tmp/pdb-ci.log "build failed"
+
+      - name: Collect APK
+        id: apk
+        run: |
+          set -euo pipefail
+          BUILD_TYPE="${{ steps.opts.outputs.build_type }}"
+          if [ "$BUILD_TYPE" = "release" ]; then
+            SRC=$(find Android/app/build/outputs/apk/release -name '*.apk' | head -1)
+            SUFFIX=release
+          else
+            SRC=$(find Android/app/build/outputs/apk/debug -name '*.apk' | head -1)
+            SUFFIX=debug
+          fi
+          if [ -z "${SRC:-}" ]; then
+            echo "No APK produced" >&2
+            exit 1
+          fi
+          mkdir -p out
+          DEST="out/PocketDoomBuilder-${SUFFIX}-${GITHUB_SHA::7}.apk"
+          cp "$SRC" "$DEST"
+          echo "apk=$DEST" >> "$GITHUB_OUTPUT"
+
+          # A green build is only useful if the APK actually contains the
+          # native library for the requested ABIs and the assets the shell
+          # reads at startup.
+          if ! REPORT=$(python3 Android/tools/verify_apk.py "$DEST" \
+                  "${{ steps.opts.outputs.abis }}" 2>&1); then
+            # Log it before failing, so the annotation step can report why.
+            echo "$REPORT" | tee -a /tmp/pdb-ci.log
+            exit 1
+          fi
+          echo "$REPORT" | tee -a /tmp/pdb-ci.log
+          ls -lh "$DEST"
+          {
+            echo "### APK"
+            echo '```'
+            echo "$DEST ($(du -h "$DEST" | cut -f1))"
+            echo '```'
+            echo "### Contents"
+            echo '```'
+            echo "$REPORT"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: PocketDoomBuilder-${{ steps.opts.outputs.build_type }}-apk
+          path: out/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      # Optional: keep a rolling pre-release so the APK can be downloaded
+      # straight onto the device without logging into Actions.
+      - name: Upload to rolling pre-release
+        if: ${{ steps.opts.outputs.upload_release == 'true' }}
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: android-latest
+          name: 'PocketDoomBuilder (latest Android build)'
+          prerelease: true
+          body: |
+            Rolling build of the PocketDoomBuilder Android port.
+
+            * commit: `${{ github.sha }}`
+            * build type: `${{ steps.opts.outputs.build_type }}`
+            * ABIs: `${{ steps.opts.outputs.abis }}`
+            * built by: workflow run ${{ github.run_id }}
+          files: out/*.apk
+
+      - name: Upload Gradle/CMake logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-logs
+          path: |
+            Android/app/build/reports/**
+            Android/app/.cxx/**
+            Android/build/reports/**
+          if-no-files-found: warn
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # Optional: boot the APK on an emulator. Everything above proves the APK
+  # exists and is well-formed; only this proves it runs - GLES3 context, ImGui
+  # backend, asset manager, first frame.
+  #
+  # The emulator needs /dev/kvm. Standard GitHub-hosted runners do not expose
+  # it, in which case the job reports that as a warning and skips the boot
+  # rather than failing for an infrastructure reason. On a runner with KVM
+  # (larger hosted runners, self-hosted) the smoke test runs for real and a
+  # failure is a real failure.
+  # ---------------------------------------------------------------------------
+  emulator-smoke-test:
+    name: Emulator smoke test
+    needs: build-apk
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_emulator_smoke_test }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Check virtualisation support
+        id: kvm
+        env:
+          FORCE_SOFTWARE: ${{ inputs.emulator_software_gpu }}
+        run: |
+          set -euo pipefail
+          usable=false
+          if [ -r /dev/kvm ] && [ -w /dev/kvm ]; then
+            usable=true
+          fi
+          echo "kvm=$usable" >> "$GITHUB_OUTPUT"
+          echo "/dev/kvm usable: $usable"
+          ls -l /dev/kvm 2>/dev/null || echo "no /dev/kvm on this runner"
+          # Without KVM qemu can still run in TCG mode, just very slowly; allow
+          # that when asked for, so a launch check is possible at all.
+          run=$usable
+          if [ "$usable" != "true" ] && [ "${FORCE_SOFTWARE}" = "true" ]; then
+            run=true
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          echo "run emulator: $run"
+
+      - name: Report skipped smoke test
+        if: ${{ steps.kvm.outputs.run != 'true' }}
+        run: |
+          echo "::warning title=Emulator smoke test skipped::No usable /dev/kvm on this runner, so the emulator cannot boot. Run Android/tools/smoke_test.sh against a real device, or run this job on a runner with KVM."
+          {
+            echo "### Emulator smoke test: skipped"
+            echo ""
+            echo "No usable \`/dev/kvm\` on this runner, so the emulator cannot boot."
+            echo ""
+            echo "The APK itself was built and verified by the jobs above. To check"
+            echo "that it starts, connect a device and run:"
+            echo ""
+            echo '```sh'
+            echo "sh Android/tools/smoke_test.sh <apk>"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Set up JDK 17
+        if: ${{ steps.kvm.outputs.run == 'true' }}
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        if: ${{ steps.kvm.outputs.run == 'true' }}
+        uses: android-actions/setup-android@v4
+
+      - name: Install emulator packages
+        if: ${{ steps.kvm.outputs.run == 'true' }}
+        run: |
+          set -euo pipefail
+          # API 30 boots much faster than 34 under software rendering, and the
+          # port's minSdk is 24, so nothing about it needs a newer image.
+          sdkmanager --install "platform-tools" "emulator" \
+            "system-images;android-30;google_apis;x86_64" "platforms;android-30"
+
+      # The APK from build-apk cannot be reused (artifacts are zipped and can
+      # only be downloaded), and an emulator needs the x86_64 slice, so build
+      # a debug APK with both ABIs here. Cheap: same Gradle caches and NDK.
+      - name: Build the APK to test
+        if: ${{ steps.kvm.outputs.run == 'true' }}
+        working-directory: Android
+        run: |
+          set -euo pipefail
+          python3 tools/set_abis.py "arm64-v8a,x86_64"
+          ./gradlew --no-daemon assembleDebug
+
+      - name: Boot emulator and launch the app
+        if: ${{ steps.kvm.outputs.run == 'true' }}
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          # Generous: without KVM the whole system runs emulated.
+          emulator-boot-timeout: 2400
+          emulator-options: >-
+            -no-window -no-audio -no-boot-anim -no-snapshot
+            -gpu swiftshader_indirect -camera-back none -camera-front none
+            ${{ steps.kvm.outputs.kvm != 'true' && '-accel off' || '' }}
+          script: |
+            sh Android/tools/smoke_test.sh \
+              Android/app/build/outputs/apk/debug/app-debug.apk \
+              smoke-test.png 25
+
+      - name: Upload emulator screenshot and logs
+        if: always() && steps.kvm.outputs.run == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: emulator-smoke-test
+          path: |
+            smoke-test-logcat.txt
+            smoke-test.png
+          if-no-files-found: warn
+          retention-days: 14
