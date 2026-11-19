@@ -40,6 +40,8 @@ void updateMetrics(float scale) {
 
 float currentUiScale() { return g_uiScale; }
 
+bool isPortrait() { return g_portrait; }
+
 const Metrics& metrics() { return g_metrics; }
 
 void requestFitToScreen() { ui::requestFitToScreen(); }

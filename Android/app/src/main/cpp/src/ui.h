@@ -52,6 +52,10 @@ void drawMainWindow(float displayWidth, float displayHeight);
 // so it can size the font atlas and touch slop.
 float currentUiScale();
 
+// True when the display is taller than it is wide (portrait). Exposed so the
+// toolbar can scroll in portrait, where the full button strip does not fit.
+bool isPortrait();
+
 // Request the shell to re-fit the map on the next frame.
 void requestFitToScreen();
 

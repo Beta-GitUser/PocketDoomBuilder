@@ -415,9 +415,9 @@ void drawMenuBar() {
 void drawToolbar() {
     Editor& ed = editor();
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::ColorConvertU32ToFloat4(T.toolbarBg));
-    // Mobile layout: the toolbar is longer than the screen, so let it scroll
-    // (desktop keeps the fixed, non-scrolling strip).
-    const ImGuiWindowFlags toolbarFlags = ed.mobileLayout
+    // Portrait screens are narrower than the full toolbar, so it scrolls
+    // horizontally there; landscape keeps the fixed, non-scrolling strip.
+    const ImGuiWindowFlags toolbarFlags = isPortrait()
                                               ? ImGuiWindowFlags_None
                                               : ImGuiWindowFlags_NoScrollbar |
                                                     ImGuiWindowFlags_NoScrollWithMouse;
@@ -614,11 +614,16 @@ void drawModeToolbar() {
     Editor& ed = editor();
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::ColorConvertU32ToFloat4(T.toolbarBg));
     // Mobile layout: the mode list is taller than the screen, so it scrolls.
+    // Reserve the scrollbar width in the child so the icons keep their full
+    // cell size instead of being squeezed next to the scrollbar.
     const ImGuiWindowFlags modeFlags = ed.mobileLayout
                                            ? ImGuiWindowFlags_None
                                            : ImGuiWindowFlags_NoScrollbar |
                                                  ImGuiWindowFlags_NoScrollWithMouse;
-    ImGui::BeginChild("##modebar", ImVec2(metrics().modeBarWidth, 0), 0, modeFlags);
+    const float barWidth = ed.mobileLayout
+                               ? metrics().modeBarWidth + ImGui::GetStyle().ScrollbarSize
+                               : metrics().modeBarWidth;
+    ImGui::BeginChild("##modebar", ImVec2(barWidth, 0), 0, modeFlags);
 
     const std::vector<EditModeInfo>& modes = editModeList();
     // Icons come from the plugins' [EditMode(ButtonImage = ...)] attributes.
