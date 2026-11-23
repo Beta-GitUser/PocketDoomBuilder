@@ -12,8 +12,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  gdextension-headless:
-    name: Build GDExtension + headless test
+  build-gdextension:
+    name: Build GDExtension
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,6 +41,40 @@ jobs:
         run: |
           sh Godot/ext/build.sh Godot/ext/pd_core.so
           ls -la Godot/ext/pd_core.so
+          # Sanity-check the entry symbol is exported.
+          nm -D Godot/ext/pd_core.so | grep pd_core_extension_init
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: gdextension-build
+          path: |
+            Godot/ext/pd_core.so
+            Godot/project-name/test_data/test.wad
+            godot-bin/
+
+  headless-test:
+    name: Headless spike test
+    needs: build-gdextension
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: gdextension-build
+          path: .
+
+      - name: Restore build layout
+        run: |
+          # Artifacts land in subdirectories named after their original paths.
+          cp -v gdextension-build/Godot/ext/pd_core.so Godot/ext/pd_core.so
+          cp -v gdextension-build/Godot/project-name/test_data/test.wad Godot/project-name/test_data/test.wad
+          mkdir -p godot-bin
+          cp -v gdextension-build/godot-bin/* godot-bin/
+          chmod +x godot-bin/*
+          ls -la Godot/ext/pd_core.so Godot/project-name/test_data/test.wad godot-bin/
 
       - name: Run headless spike test
         working-directory: Godot/project-name

@@ -593,7 +593,7 @@ extern "C" GDExtensionBool pd_core_extension_init(
     g_get_to_ctor = (GDExtensionInterfaceGetVariantToTypeConstructor)
         p_get_proc_address("get_variant_to_type_constructor");
     g_get_internal_ptr = (GDExtensionInterfaceGetVariantGetInternalPtrFunc)
-        p_get_proc_address("get_variant_get_internal_ptr_func");
+        p_get_proc_address("variant_get_ptr_internal_getter");
 
     // Cache per-type constructors.
     g_from_string = g_get_from_ctor(GDEXTENSION_VARIANT_TYPE_STRING);
