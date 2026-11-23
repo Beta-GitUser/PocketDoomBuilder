@@ -95,9 +95,10 @@ jobs:
         run: |
           echo "=== spike_test.log ==="
           cat spike_test.log
-          # Commit the log so it can be read via the API (log host is unreachable).
-          curl -sS -X PUT \
+          # Commit the log to the triggering branch so it can be read via
+          # the API (the CI log host is unreachable from the sandbox).
+          curl --fail -sS -X PUT \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${{ github.repository }}/contents/Godot/project-name/spike_test.log" \
+            "https://api.github.com/repos/${{ github.repository }}/contents/Godot/project-name/spike_test.log?ref=${{ github.ref_name }}" \
             -d "{\"message\":\"CI diagnostics: spike test log\",\"content\":\"$(base64 -w0 spike_test.log)\"}"
