@@ -34,15 +34,9 @@ var _tab_name_label: Label
 # ---------------------------------------------------------------------------
 
 func _ready() -> void:
+	# Anchors are set in the scene file (main.tscn) to fill the viewport.
+	# anchors_fill = true ensures the Control fills the screen.
 	anchors_fill = true
-	anchor_left = 0.0
-	anchor_right = 1.0
-	anchor_top = 0.0
-	anchor_bottom = 1.0
-	offset_left = 0.0
-	offset_right = get_size().x
-	offset_top = 0.0
-	offset_bottom = get_size().y
 
 	_build_root()
 	_show_tab(TAB_MAIN)
@@ -50,14 +44,6 @@ func _ready() -> void:
 func _build_root() -> void:
 	var root_v = VBoxContainer
 	root_v.anchors_fill = true
-	root_v.anchor_left = 0.0
-	root_v.anchor_right = 1.0
-	root_v.anchor_top = 0.0
-	root_v.anchor_bottom = 1.0
-	root_v.offset_left = 0.0
-	root_v.offset_right = get_size().x
-	root_v.offset_top = 0.0
-	root_v.offset_bottom = get_size().y
 	root_v.add_theme_constant_override("separation", 0)
 	add_child(root_v)
 
