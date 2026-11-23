@@ -41,8 +41,8 @@ jobs:
 
       - name: Extract export templates
         run: |
-          export GODOT_USER_PATH=/tmp/godot_user
-          mkdir -p "$GODOT_USER_PATH/export_templates"
+          TEMPLATES_DIR="$HOME/.local/share/godot/export_templates"
+          mkdir -p "$TEMPLATES_DIR"
           # Unzip the .tpz (it's a standard zip archive).
           unzip -o export_templates.tpz -d /tmp/tpz_extract
           # Find version.txt to get the template version.
@@ -53,9 +53,9 @@ jobs:
           # Determine the source directory (parent of version.txt).
           SRC_DIR=$(dirname "$VERSION_FILE")
           # Copy all files (excluding __MACOSX) to the Godot templates dir.
-          mkdir -p "$GODOT_USER_PATH/export_templates/$TEMPLATE_VERSION"
-          cp -r "$SRC_DIR"/. "$GODOT_USER_PATH/export_templates/$TEMPLATE_VERSION/"
-          find "$GODOT_USER_PATH/export_templates/$TEMPLATE_VERSION" -type f | head -10
+          mkdir -p "$TEMPLATES_DIR/$TEMPLATE_VERSION"
+          cp -r "$SRC_DIR"/. "$TEMPLATES_DIR/$TEMPLATE_VERSION/"
+          find "$TEMPLATES_DIR/$TEMPLATE_VERSION" -type f | head -10
           rm -rf /tmp/tpz_extract export_templates.tpz
 
       - name: Set up Android SDK
@@ -81,8 +81,6 @@ jobs:
 
       - name: Import Godot project
         working-directory: Godot/project-name
-        env:
-          GODOT_USER_PATH: /tmp/godot_user
         run: |
           ../../godot-bin/Godot_v4.7.2-stable_linux.x86_64 \
             --headless \
@@ -92,7 +90,6 @@ jobs:
       - name: Export Android APK
         working-directory: Godot/project-name
         env:
-          GODOT_USER_PATH: /tmp/godot_user
           ANDROID_HOME: /opt/android-sdk
           ANDROID_SDK_ROOT: /opt/android-sdk
         run: |
