@@ -90,11 +90,14 @@ jobs:
       - name: Upload test log on failure
         if: failure()
         working-directory: Godot/project-name
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           echo "=== spike_test.log ==="
           cat spike_test.log
           # Commit the log so it can be read via the API (log host is unreachable).
-          gh api repos/${{ github.repository }}/contents/Godot/project-name/spike_test.log \
-            -X PUT \
-            -f message="CI diagnostics: spike test log" \
-            -f content="$(base64 -w0 spike_test.log)"
+          curl -sS -X PUT \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/contents/Godot/project-name/spike_test.log" \
+            -d "{\"message\":\"CI diagnostics: spike test log\",\"content\":\"$(base64 -w0 spike_test.log)\"}"
