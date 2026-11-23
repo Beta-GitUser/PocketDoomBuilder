@@ -2,14 +2,14 @@
 # PocketDoomBuilder — GDExtension spike build script.
 # Compiles pd_core_extension.cpp + the C++ core into a shared library.
 #
-# Usage: sh Godot/ext/build.sh [output_path]
-# Default output: Godot/ext/pd_core.so
+# Usage: sh Godot/project-name/ext/build.sh [output_path]
+# Default output: Godot/project-name/ext/pd_core.so
 
 set -e
 
-ROOT=$(cd "$(dirname "$0")/../.." && pwd)
+ROOT=$(cd "$(dirname "$0")/../../.." && pwd)
 SRC="$ROOT/Android/app/src/main/cpp/src"
-EXT="$ROOT/Godot/ext"
+EXT="$ROOT/Godot/project-name/ext"
 OUT="${1:-$EXT/pd_core.so}"
 
 CORE_SRC="$SRC/map.cpp $SRC/wad.cpp $SRC/mapio.cpp $SRC/mapio_binary.cpp $SRC/mapio_udmf.cpp $SRC/view2d.cpp $SRC/png.cpp $SRC/helpdoc.cpp"

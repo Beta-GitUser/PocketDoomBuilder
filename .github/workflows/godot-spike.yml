@@ -35,21 +35,21 @@ jobs:
 
       - name: Generate test WAD
         run: |
-          python3 Godot/ext/gen_test_wad.py Godot/project-name/test_data/test.wad
+          python3 Godot/project-name/ext/gen_test_wad.py Godot/project-name/test_data/test.wad
 
       - name: Build GDExtension
         run: |
-          sh Godot/ext/build.sh Godot/ext/pd_core.so
-          ls -la Godot/ext/pd_core.so
+          sh Godot/project-name/ext/build.sh Godot/project-name/ext/pd_core.so
+          ls -la Godot/project-name/ext/pd_core.so
           # Sanity-check the entry symbol is exported.
-          nm -D Godot/ext/pd_core.so | grep pd_core_extension_init
+          nm -D Godot/project-name/ext/pd_core.so | grep pd_core_extension_init
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: gdextension-build
           path: |
-            Godot/ext/pd_core.so
+            Godot/project-name/ext/pd_core.so
             Godot/project-name/test_data/test.wad
             godot-bin/
 
@@ -69,12 +69,12 @@ jobs:
       - name: Restore build layout
         run: |
           # Artifacts land in subdirectories named after their original paths.
-          cp -v gdextension-build/Godot/ext/pd_core.so Godot/ext/pd_core.so
+          cp -v gdextension-build/Godot/project-name/ext/pd_core.so Godot/project-name/ext/pd_core.so
           cp -v gdextension-build/Godot/project-name/test_data/test.wad Godot/project-name/test_data/test.wad
           mkdir -p godot-bin
           cp -v gdextension-build/godot-bin/* godot-bin/
           chmod +x godot-bin/*
-          ls -la Godot/ext/pd_core.so Godot/project-name/test_data/test.wad godot-bin/
+          ls -la Godot/project-name/ext/pd_core.so Godot/project-name/test_data/test.wad godot-bin/
 
       - name: Run headless spike test
         working-directory: Godot/project-name
