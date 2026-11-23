@@ -16,7 +16,7 @@ config/features=PackedStringArray("4.7", "GL Compatibility")
 
 [autoload]
 
-PDCore="*res://pd_core_autoload.gd"
+PDB="*res://pd_core_autoload.gd"
 
 [display]
 
@@ -39,3 +39,11 @@ anti_aliasing/quality/screen_space_aa=0
 [physics]
 
 common/physics_engine="Jolt Physics"
+
+[android]
+
+# Storage permissions so the app can use /storage/emulated/0/ as the base
+# directory (avoids SAF file-picker issues). MANAGE_EXTERNAL_STORAGE is the
+# Android 11+ broad-access permission; READ/WRITE_EXTERNAL_STORAGE cover
+# older versions.
+permissions=PackedStringArray("MANAGE_EXTERNAL_STORAGE", "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE")

@@ -143,6 +143,10 @@ static GDExtensionConstStringNamePtr make_stringname(const char *utf8) {
 struct PDCoreInstance {
     pdb::WadFile wad;
     bool has_wad = false;
+    std::string wad_path;      // original file path (for save)
+    pdb::MapSet loaded_map;    // currently loaded map (for save_map)
+    std::string loaded_map_name;
+    bool has_map = false;
 };
 
 static PDCoreInstance *to_instance(GDExtensionClassInstancePtr p_instance) {
@@ -183,6 +187,8 @@ static void pdcore_open_wad(void * /*method_userdata*/, GDExtensionClassInstance
         return;
     }
     self->has_wad = true;
+    self->wad_path = path;
+    self->has_map = false;
     int count = (int)pdb::listMaps(self->wad).size();
     return_int(r_return, count);
 }
@@ -223,6 +229,10 @@ static void pdcore_load_map(void * /*method_userdata*/, GDExtensionClassInstance
         return_string(r_return, "error: " + result.error);
         return;
     }
+    // Store the loaded map so save_map() can write it back.
+    self->loaded_map = map;
+    self->loaded_map_name = name;
+    self->has_map = true;
     std::string summary = "format=";
     switch (result.format) {
         case pdb::MapFormat::Doom:    summary += "doom"; break;
@@ -247,6 +257,103 @@ static void pdcore_close(void * /*method_userdata*/, GDExtensionClassInstancePtr
     PDCoreInstance *self = to_instance(p_instance);
     self->wad = pdb::WadFile();
     self->has_wad = false;
+    self->wad_path.clear();
+    self->loaded_map = pdb::MapSet();
+    self->loaded_map_name.clear();
+    self->has_map = false;
+}
+
+// save_map() -> String
+// Saves the currently loaded map back into the WAD and writes the WAD to disk.
+// Returns "ok" or "error: ...".
+static void pdcore_save_map(void * /*method_userdata*/, GDExtensionClassInstancePtr p_instance,
+                            const GDExtensionConstVariantPtr * /*p_args*/, GDExtensionInt /*p_argument_count*/,
+                            GDExtensionVariantPtr r_return, GDExtensionCallError * /*r_error*/) {
+    PDCoreInstance *self = to_instance(p_instance);
+    if (!self->has_wad) {
+        return_string(r_return, "error: no wad open");
+        return;
+    }
+    if (!self->has_map) {
+        return_string(r_return, "error: no map loaded");
+        return;
+    }
+    std::string error;
+    if (!pdb::saveMap(self->wad, self->loaded_map, error)) {
+        return_string(r_return, "error: " + error);
+        return;
+    }
+    // Write the updated WAD back to disk.
+    if (!self->wad_path.empty()) {
+        std::vector<uint8_t> bytes = pdb::writeWad(self->wad);
+        FILE *f = std::fopen(self->wad_path.c_str(), "wb");
+        if (f) {
+            std::fwrite(bytes.data(), 1, bytes.size(), f);
+            std::fclose(f);
+        }
+    }
+    return_string(r_return, "ok");
+}
+
+// save_wad_as(path: String) -> int
+// Writes the current WAD (with any loaded map edits) to a new path.
+// Returns 0 on success, -1 on failure.
+static void pdcore_save_wad_as(void * /*method_userdata*/, GDExtensionClassInstancePtr p_instance,
+                               const GDExtensionConstVariantPtr *p_args, GDExtensionInt p_argument_count,
+                               GDExtensionVariantPtr r_return, GDExtensionCallError * /*r_error*/) {
+    PDCoreInstance *self = to_instance(p_instance);
+    if (!self->has_wad) {
+        return_int(r_return, -1);
+        return;
+    }
+    std::string path = variant_to_string(p_args[0]);
+    // If a map is loaded, save it into the WAD first so the output is current.
+    if (self->has_map) {
+        std::string error;
+        pdb::saveMap(self->wad, self->loaded_map, error);
+    }
+    std::vector<uint8_t> bytes = pdb::writeWad(self->wad);
+    FILE *f = std::fopen(path.c_str(), "wb");
+    if (!f) {
+        return_int(r_return, -1);
+        return;
+    }
+    std::fwrite(bytes.data(), 1, bytes.size(), f);
+    std::fclose(f);
+    self->wad_path = path;
+    return_int(r_return, 0);
+}
+
+// get_wad_path() -> String
+static void pdcore_get_wad_path(void * /*method_userdata*/, GDExtensionClassInstancePtr p_instance,
+                                const GDExtensionConstVariantPtr * /*p_args*/, GDExtensionInt /*p_argument_count*/,
+                                GDExtensionVariantPtr r_return, GDExtensionCallError * /*r_error*/) {
+    PDCoreInstance *self = to_instance(p_instance);
+    return_string(r_return, self->wad_path);
+}
+
+// get_current_map() -> String
+static void pdcore_get_current_map(void * /*method_userdata*/, GDExtensionClassInstancePtr p_instance,
+                                   const GDExtensionConstVariantPtr * /*p_args*/, GDExtensionInt /*p_argument_count*/,
+                                   GDExtensionVariantPtr r_return, GDExtensionCallError * /*r_error*/) {
+    PDCoreInstance *self = to_instance(p_instance);
+    if (!self->has_map) {
+        return_string(r_return, "");
+        return;
+    }
+    return_string(r_return, self->loaded_map_name);
+}
+
+// get_map_count() -> int
+static void pdcore_get_map_count(void * /*method_userdata*/, GDExtensionClassInstancePtr p_instance,
+                                 const GDExtensionConstVariantPtr * /*p_args*/, GDExtensionInt /*p_argument_count*/,
+                                 GDExtensionVariantPtr r_return, GDExtensionCallError * /*r_error*/) {
+    PDCoreInstance *self = to_instance(p_instance);
+    if (!self->has_wad) {
+        return_int(r_return, 0);
+        return;
+    }
+    return_int(r_return, (int)pdb::listMaps(self->wad).size());
 }
 
 // ---------------------------------------------------------------------------
@@ -274,6 +381,11 @@ static void pdcore_register_class(GDExtensionClassLibraryPtr p_library) {
     GDExtensionConstStringNamePtr s_list_maps = make_stringname("list_maps");
     GDExtensionConstStringNamePtr s_load_map = make_stringname("load_map");
     GDExtensionConstStringNamePtr s_close = make_stringname("close");
+    GDExtensionConstStringNamePtr s_save_map = make_stringname("save_map");
+    GDExtensionConstStringNamePtr s_save_wad_as = make_stringname("save_wad_as");
+    GDExtensionConstStringNamePtr s_get_wad_path = make_stringname("get_wad_path");
+    GDExtensionConstStringNamePtr s_get_current_map = make_stringname("get_current_map");
+    GDExtensionConstStringNamePtr s_get_map_count = make_stringname("get_map_count");
 
     // PropertyInfo for argument/return metadata.
     GDExtensionPropertyInfo arg_path = {};
@@ -357,6 +469,81 @@ static void pdcore_register_class(GDExtensionClassLibraryPtr p_library) {
     m.method_flags = GDEXTENSION_METHOD_FLAG_NORMAL;
     m.has_return_value = false;
     m.return_value_info = nullptr;
+    m.return_value_metadata = GDEXTENSION_METHOD_ARGUMENT_METADATA_NONE;
+    m.argument_count = 0;
+    m.arguments_info = nullptr;
+    m.arguments_metadata = nullptr;
+    m.default_argument_count = 0;
+    g_register_method(p_library, s_class, &m);
+
+    // save_map() -> String
+    memset(&m, 0, sizeof(m));
+    m.name = (GDExtensionStringNamePtr)s_save_map;
+    m.method_userdata = nullptr;
+    m.call_func = pdcore_save_map;
+    m.method_flags = GDEXTENSION_METHOD_FLAG_NORMAL;
+    m.has_return_value = true;
+    m.return_value_info = &ret_str;
+    m.return_value_metadata = GDEXTENSION_METHOD_ARGUMENT_METADATA_NONE;
+    m.argument_count = 0;
+    m.arguments_info = nullptr;
+    m.arguments_metadata = nullptr;
+    m.default_argument_count = 0;
+    g_register_method(p_library, s_class, &m);
+
+    // save_wad_as(path: String) -> int
+    memset(&m, 0, sizeof(m));
+    m.name = (GDExtensionStringNamePtr)s_save_wad_as;
+    m.method_userdata = nullptr;
+    m.call_func = pdcore_save_wad_as;
+    m.method_flags = GDEXTENSION_METHOD_FLAG_NORMAL;
+    m.has_return_value = true;
+    m.return_value_info = &ret_int;
+    m.return_value_metadata = GDEXTENSION_METHOD_ARGUMENT_METADATA_NONE;
+    m.argument_count = 1;
+    m.arguments_info = &arg_path;
+    m.arguments_metadata = &no_meta;
+    m.default_argument_count = 0;
+    g_register_method(p_library, s_class, &m);
+
+    // get_wad_path() -> String
+    memset(&m, 0, sizeof(m));
+    m.name = (GDExtensionStringNamePtr)s_get_wad_path;
+    m.method_userdata = nullptr;
+    m.call_func = pdcore_get_wad_path;
+    m.method_flags = GDEXTENSION_METHOD_FLAG_NORMAL;
+    m.has_return_value = true;
+    m.return_value_info = &ret_str;
+    m.return_value_metadata = GDEXTENSION_METHOD_ARGUMENT_METADATA_NONE;
+    m.argument_count = 0;
+    m.arguments_info = nullptr;
+    m.arguments_metadata = nullptr;
+    m.default_argument_count = 0;
+    g_register_method(p_library, s_class, &m);
+
+    // get_current_map() -> String
+    memset(&m, 0, sizeof(m));
+    m.name = (GDExtensionStringNamePtr)s_get_current_map;
+    m.method_userdata = nullptr;
+    m.call_func = pdcore_get_current_map;
+    m.method_flags = GDEXTENSION_METHOD_FLAG_NORMAL;
+    m.has_return_value = true;
+    m.return_value_info = &ret_str;
+    m.return_value_metadata = GDEXTENSION_METHOD_ARGUMENT_METADATA_NONE;
+    m.argument_count = 0;
+    m.arguments_info = nullptr;
+    m.arguments_metadata = nullptr;
+    m.default_argument_count = 0;
+    g_register_method(p_library, s_class, &m);
+
+    // get_map_count() -> int
+    memset(&m, 0, sizeof(m));
+    m.name = (GDExtensionStringNamePtr)s_get_map_count;
+    m.method_userdata = nullptr;
+    m.call_func = pdcore_get_map_count;
+    m.method_flags = GDEXTENSION_METHOD_FLAG_NORMAL;
+    m.has_return_value = true;
+    m.return_value_info = &ret_int;
     m.return_value_metadata = GDEXTENSION_METHOD_ARGUMENT_METADATA_NONE;
     m.argument_count = 0;
     m.arguments_info = nullptr;
