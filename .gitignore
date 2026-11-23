@@ -39,8 +39,6 @@ keystore.properties
 *.jks
 *.keystore
 
-# GDExtension build artifacts (built by Godot/project-name/ext/build.sh and CI)
-Godot/project-name/ext/pd_core.so
-Godot/project-name/ext/pd_core.dylib
-Godot/project-name/ext/pd_core.dll
-Godot/project-name/test_data/
+# Generated test data (test.wad is built by CI; gen_test_wad.py is tracked)
+Godot/project-name/test_data/test.wad
+Godot/project-name/test_data/spike_test.log

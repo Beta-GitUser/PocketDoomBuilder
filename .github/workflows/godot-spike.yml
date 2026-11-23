@@ -15,8 +15,8 @@ permissions:
   contents: write
 
 jobs:
-  build-gdextension:
-    name: Build GDExtension
+  headless-test:
+    name: Headless GDScript spike test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,7 +24,7 @@ jobs:
       - name: Install build tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential python3
+          sudo apt-get install -y python3
 
       - name: Download Godot 4.7.2-stable (Linux x86_64)
         run: |
@@ -38,44 +38,7 @@ jobs:
 
       - name: Generate test WAD
         run: |
-          python3 Godot/project-name/ext/gen_test_wad.py Godot/project-name/test_data/test.wad
-
-      - name: Build GDExtension
-        run: |
-          sh Godot/project-name/ext/build.sh Godot/project-name/ext/pd_core.so
-          ls -la Godot/project-name/ext/pd_core.so
-          # Sanity-check the entry symbol is exported.
-          nm -D Godot/project-name/ext/pd_core.so | grep pd_core_extension_init
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: gdextension-build
-          path: |
-            Godot/project-name/ext/pd_core.so
-            Godot/project-name/test_data/test.wad
-            godot-bin/
-
-  headless-test:
-    name: Headless spike test
-    needs: build-gdextension
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: gdextension-build
-          path: .
-
-      - name: Restore build layout
-        run: |
-          # download-artifact@v4 with path: . extracts files preserving their
-          # original directory structure, so the .so and test.wad land in
-          # place automatically. Just make the Godot binary executable.
-          chmod +x godot-bin/*
-          ls -la Godot/project-name/ext/pd_core.so Godot/project-name/test_data/test.wad godot-bin/
+          python3 Godot/project-name/test_data/gen_test_wad.py Godot/project-name/test_data/test.wad
 
       - name: Run headless spike test
         working-directory: Godot/project-name

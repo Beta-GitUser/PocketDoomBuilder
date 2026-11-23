@@ -332,7 +332,7 @@ func _set_status(msg: String) -> void:
 func _refresh_wad_status() -> void:
 	if not is_instance_valid(_wad_label) or not is_instance_valid(_map_option):
 		return
-	var core: Variant = PDB.core
+	var core: WadFile = PDB.core
 	if core == null:
 		_wad_label.text = "No WAD open"
 		_map_option.clear()
@@ -373,20 +373,20 @@ func _on_open_wad() -> void:
 		_do_open_wad(path))
 
 func _do_open_wad(path: String) -> void:
-	var core: Variant = PDB.core
+	var core: WadFile = PDB.core
 	if core == null:
-		_set_status("GDExtension not loaded.")
+		_set_status("WAD core not ready.")
 		return
 	var count: int = core.open_wad(path)
 	if count < 0:
 		_set_status("Failed to open WAD.")
-		push_error("PDCore.open_wad failed for: " + path)
+		push_error("WadFile.open_wad failed for: " + path)
 	else:
 		_set_status("Opened WAD: %d map(s)." % count)
 	_refresh_wad_status()
 
 func _on_map_selected(index: int) -> void:
-	var core: Variant = PDB.core
+	var core: WadFile = PDB.core
 	if core == null or _map_option.disabled:
 		return
 	var name: String = _map_option.get_item_text(index)
@@ -399,17 +399,17 @@ func _on_map_selected(index: int) -> void:
 		_map_label.text = "Map: " + name
 
 func _on_save() -> void:
-	var core: Variant = PDB.core
+	var core: WadFile = PDB.core
 	if core == null:
-		_set_status("GDExtension not loaded.")
+		_set_status("WAD core not ready.")
 		return
 	var result: String = core.save_map()
 	_set_status(result)
 
 func _on_save_as() -> void:
-	var core: Variant = PDB.core
+	var core: WadFile = PDB.core
 	if core == null:
-		_set_status("GDExtension not loaded.")
+		_set_status("WAD core not ready.")
 		return
 	var dialog = FileDialog.new()
 	dialog.access = FileDialog.ACCESS_FILESYSTEM

@@ -1,24 +1,16 @@
-# PocketDoomBuilder — GDExtension autoload (named "PDB").
-# Loads the PDCore GDExtension so its class is available globally,
-# and holds a single shared PDCore instance for the UI to use.
+# PocketDoomBuilder — PDB autoload.
+#
+# Holds a single shared WadFile instance for the UI to use.
+# No GDExtension — the WAD core is pure GDScript (wad_file.gd).
+# Also requests Android storage permissions for /storage/emulated/0/.
 
 extends Node
 
-## The shared PDCore GDExtension instance.
-## Typed as Variant — the PDCore class is registered at runtime by the
-## GDExtension, so the GDScript parser cannot resolve it as a type.
-var core: Variant = null
-
-## The loaded GDExtension resource.
-var _pdcore_extension: GDExtension
+## The shared WadFile instance for the UI to use.
+var core: WadFile = WadFile.new()
 
 func _ready() -> void:
-	_pdcore_extension = load("res://ext/pd_core.gdextension")
-	if _pdcore_extension == null:
-		push_error("PDCore GDExtension failed to load.")
-		return
-	core = ClassDB.instantiate("PDCore")
-	print("PDCore GDExtension loaded. PDB autoload ready.")
+	print("PDB autoload ready (GDScript WAD core).")
 
 	# Request external-storage permission on Android so we can use
 	# /storage/emulated/0/ as the base directory (avoids SAF).
