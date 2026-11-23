@@ -11,6 +11,9 @@ on:
       - '.github/workflows/godot-spike.yml'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-gdextension:
     name: Build GDExtension
@@ -77,7 +80,21 @@ jobs:
       - name: Run headless spike test
         working-directory: Godot/project-name
         run: |
+          LOG=spike_test.log
           ../godot-bin/Godot_v4.7.2-stable_linux.x86_64 \
             --headless \
             --path . \
-            --script res://test_spike.gd
+            --script res://test_spike.gd 2>&1 | tee "$LOG"
+          exit ${PIPESTATUS[0]}
+
+      - name: Upload test log on failure
+        if: failure()
+        working-directory: Godot/project-name
+        run: |
+          echo "=== spike_test.log ==="
+          cat spike_test.log
+          # Commit the log so it can be read via the API (log host is unreachable).
+          gh api repos/${{ github.repository }}/contents/Godot/project-name/spike_test.log \
+            -X PUT \
+            -f message="CI diagnostics: spike test log" \
+            -f content="$(base64 -w0 spike_test.log)"
