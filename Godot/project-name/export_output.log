@@ -5,18 +5,6 @@ Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
 [  16% ] [90m[1mfirst_scan_filesystem[22m | Loading global class names...[39m[0m
 [  33% ] [90m[1mfirst_scan_filesystem[22m | Verifying GDExtensions...[39m[0m
 [  50% ] [90m[1mfirst_scan_filesystem[22m | Creating autoload scripts...[39m[0m
-SCRIPT ERROR: Parse Error: Assigned value for constant "MAP_LUMP_NAMES" isn't a constant expression.
-          at: GDScript::reload (res://wad_file.gd:26)
-SCRIPT ERROR: Parse Error: Too few arguments for "get_buffer()" call. Expected at least 1 but received 0.
-          at: GDScript::reload (res://wad_file.gd:45)
-SCRIPT ERROR: Parse Error: Cannot infer the type of "next" variable because the value doesn't have a set type.
-          at: GDScript::reload (res://wad_file.gd:57)
-SCRIPT ERROR: Parse Error: Cannot infer the type of "n" variable because the value doesn't have a set type.
-          at: GDScript::reload (res://wad_file.gd:86)
-SCRIPT ERROR: Parse Error: Cannot infer the type of "next" variable because the value doesn't have a set type.
-          at: GDScript::reload (res://wad_file.gd:168)
-SCRIPT ERROR: Parse Error: Cannot infer the type of "n" variable because the value doesn't have a set type.
-          at: GDScript::reload (res://wad_file.gd:214)
 SCRIPT ERROR: Parse Error: Cannot infer the type of "header_idx" variable because the value doesn't have a set type.
           at: GDScript::reload (res://wad_file.gd:455)
 SCRIPT ERROR: Parse Error: Cannot infer the type of "insert_idx" variable because the value doesn't have a set type.
@@ -25,9 +13,9 @@ SCRIPT ERROR: Parse Error: Cannot find member "utf8" in base "String".
           at: GDScript::reload (res://wad_file.gd:586)
 SCRIPT ERROR: Parse Error: Function "utf8()" not found in base String.
           at: GDScript::reload (res://wad_file.gd:586)
-SCRIPT ERROR: Parse Error: Cannot find member "to_s" in base "PackedByteArray".
+SCRIPT ERROR: Parse Error: Cannot find member "from_utf8" in base "String".
           at: GDScript::reload (res://wad_file.gd:623)
-SCRIPT ERROR: Parse Error: Function "to_s()" not found in base PackedByteArray.
+SCRIPT ERROR: Parse Error: Function "from_utf8()" not found in base String.
           at: GDScript::reload (res://wad_file.gd:623)
 SCRIPT ERROR: Parse Error: Cannot find member "utf8" in base "String".
           at: GDScript::reload (res://wad_file.gd:646)
@@ -43,10 +31,57 @@ ERROR: Failed to load script "res://pd_core_autoload.gd" with error "Parse error
 [  83% ] [90m[1mfirst_scan_filesystem[22m | Starting file scan...[39m[0m
 [92m[ DONE ][39m [1mfirst_scan_filesystem[22m
 [0m
-ERROR: Cannot export project with preset "Android" due to configuration errors:
-ETC2/ASTC texture compression is required for Android export. In Project Settings, search for 'ETC2' in the search field, or enable 'Advanced Settings' and go to Rendering > Textures > VRAM Compression to enable 'Import ETC2 ASTC'.
+[   0% ] [90m[1mexport[22m | Started Exporting for Android (105 steps)[39m[0m
+ERROR: No project icon specified. Please specify one in the Project Settings under Application -> Config -> Icon
+   at: load_icon_refs (platform/android/export/export_plugin.cpp:1941)
+0 param: --xr_mode_regular
+1 param: --xr-mode
+2 param: off
+3 param: --fullscreen
+4 param: --background_color
+5 param: #000000
+SCRIPT ERROR: Parse Error: Expected end of statement after variable declaration, found "Identifier" instead.
+          at: GDScript::reload (res://main.gd:138)
+ERROR: Failed to load script "res://main.gd" with error "Parse error".
+   at: load (modules/gdscript/gdscript_resource_format.cpp:46)
+ERROR: Export: Building of Android project failed, check output for the error:
 
-   at: _fs_changed (editor/editor_node.cpp:1401)
+Downloading https://services.gradle.org/distributions/gradle-8.11.1-bin.zip
+.............10%.............20%.............30%.............40%.............50%.............60%.............70%.............80%.............90%.............100%
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::load has been called by net.rubygrapefruit.platform.internal.NativeLibraryLoader in an unnamed module (file:/home/runner/.gradle/wrapper/dists/gradle-8.11.1-bin/bpt9gzteqjrbo1mjrsomdt32c/gradle-8.11.1/lib/native-platform-0.22-milestone-26.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+
+Welcome to Gradle 8.11.1!
+
+Here are the highlights of this release:
+ - Parallel load and store for Configuration Cache
+ - Java compilation errors at the end of the build output
+ - Consolidated report for warnings and deprecations
+
+For more details see https://docs.gradle.org/8.11.1/release-notes.html
+
+Starting a Gradle Daemon (subsequent builds will be faster)
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+BUG! exception in phase 'semantic analysis' in source unit '_BuildScript_' Unsupported class file major version 69
+> Unsupported class file major version 69
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 7s
+
+   at: add_message (./editor/export/editor_export_platform.h:270)
+[92m[ DONE ][39m [1mexport[22m
+[0m
 ERROR: Project export for preset "Android" failed.
    at: _fs_changed (editor/editor_node.cpp:1417)
 WARNING: Scan thread aborted...
