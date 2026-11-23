@@ -99,7 +99,7 @@ jobs:
           LOG=export_output.log
           ../../godot-bin/Godot_v4.7.2-stable_linux.x86_64 \
             --headless \
-            --export "Android" "PocketDoomBuilder.apk" \
+            --export-debug "Android" "PocketDoomBuilder.apk" \
             --install-android-build-template \
             --path . 2>&1 | tee "$LOG"
           exit ${PIPESTATUS[0]}
