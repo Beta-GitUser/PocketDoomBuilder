@@ -332,7 +332,7 @@ func _set_status(msg: String) -> void:
 func _refresh_wad_status() -> void:
 	if not is_instance_valid(_wad_label) or not is_instance_valid(_map_option):
 		return
-	var core: PDCore = PDB.core
+	var core: Variant = PDB.core
 	if core == null:
 		_wad_label.text = "No WAD open"
 		_map_option.clear()
@@ -373,7 +373,7 @@ func _on_open_wad() -> void:
 		_do_open_wad(path))
 
 func _do_open_wad(path: String) -> void:
-	var core: PDCore = PDB.core
+	var core: Variant = PDB.core
 	if core == null:
 		_set_status("GDExtension not loaded.")
 		return
@@ -386,7 +386,7 @@ func _do_open_wad(path: String) -> void:
 	_refresh_wad_status()
 
 func _on_map_selected(index: int) -> void:
-	var core: PDCore = PDB.core
+	var core: Variant = PDB.core
 	if core == null or _map_option.disabled:
 		return
 	var name: String = _map_option.get_item_text(index)
@@ -399,7 +399,7 @@ func _on_map_selected(index: int) -> void:
 		_map_label.text = "Map: " + name
 
 func _on_save() -> void:
-	var core: PDCore = PDB.core
+	var core: Variant = PDB.core
 	if core == null:
 		_set_status("GDExtension not loaded.")
 		return
@@ -407,7 +407,7 @@ func _on_save() -> void:
 	_set_status(result)
 
 func _on_save_as() -> void:
-	var core: PDCore = PDB.core
+	var core: Variant = PDB.core
 	if core == null:
 		_set_status("GDExtension not loaded.")
 		return

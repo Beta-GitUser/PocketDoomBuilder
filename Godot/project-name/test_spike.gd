@@ -19,9 +19,12 @@ func _init() -> void:
 
 	print("=== PDCore GDExtension spike test ===")
 
-	var core = PDCore.new()
+	# Use ClassDB.instantiate so the GDScript parser does not need to
+	# resolve PDCore as a type at parse time (the extension registers
+	# the class at runtime, after parsing).
+	var core = ClassDB.instantiate("PDCore")
 	if core == null:
-		push_error("FAIL: PDCore.new() returned null.")
+		push_error("FAIL: ClassDB.instantiate(\"PDCore\") returned null.")
 		quit(1)
 		return
 

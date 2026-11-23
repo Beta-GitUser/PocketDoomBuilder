@@ -5,7 +5,9 @@
 extends Node
 
 ## The shared PDCore GDExtension instance.
-var core: PDCore
+## Typed as Variant — the PDCore class is registered at runtime by the
+## GDExtension, so the GDScript parser cannot resolve it as a type.
+var core: Variant = null
 
 ## The loaded GDExtension resource.
 var _pdcore_extension: GDExtension
@@ -15,7 +17,7 @@ func _ready() -> void:
 	if _pdcore_extension == null:
 		push_error("PDCore GDExtension failed to load.")
 		return
-	core = PDCore.new()
+	core = ClassDB.instantiate("PDCore")
 	print("PDCore GDExtension loaded. PDB autoload ready.")
 
 	# Request external-storage permission on Android so we can use
