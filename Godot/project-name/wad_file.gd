@@ -14,7 +14,7 @@ extends RefCounted
 var type: String = ""
 
 ## Ordered lumps in the WAD.
-var lumps: Array = []
+var lumps: Array[WadLump] = []
 
 ## Original file path (for save_map to write back to the same file).
 var wad_path: String = ""
@@ -23,12 +23,12 @@ var wad_path: String = ""
 var _current_map: MapNode = null
 
 ## Known map lump names (matching the C++ core's kMapLumpNames).
-const MAP_LUMP_NAMES: PackedStringArray = PackedStringArray([
+const MAP_LUMP_NAMES := [
     "THINGS", "LINEDEFS", "SIDEDEFS", "VERTEXES", "SEGS", "SSECTORS",
     "NODES", "SECTORS", "REJECT", "BLOCKMAP", "BEHAVIOR", "TEXTMAP",
     "ZNODES", "DIALOGUE", "ENDMAP", "SCRIPTS", "LEAFS", "GL_NODES",
     "GL_SEGS", "GL_SSECT", "GL_PVS",
-])
+]
 
 # =====================================================================
 # Public API (mirrors the former PDCore GDExtension)
@@ -42,7 +42,7 @@ func open_wad(path: String) -> int:
 	var f := FileAccess.open(path, FileAccess.READ)
 	if f == null:
 		return -1
-	var bytes: PackedByteArray = f.get_buffer()
+	var bytes: PackedByteArray = f.get_buffer(f.get_length())
 	f.close()
 	if not _parse_wad(bytes):
 		return -1
@@ -620,7 +620,7 @@ func _read_lump_name(b: PackedByteArray, off: int) -> String:
 	var nul := raw.find(0, 0)
 	if nul >= 0:
 		raw = raw.slice(0, nul)
-	return raw.to_s().to_upper()
+	return String.from_utf8(raw).to_upper()
 
 func _write_u16(buf: PackedByteArray, v: int) -> void:
 	buf.append(v & 0xFF)
