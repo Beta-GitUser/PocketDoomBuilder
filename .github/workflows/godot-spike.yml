@@ -68,11 +68,9 @@ jobs:
 
       - name: Restore build layout
         run: |
-          # Artifacts land in subdirectories named after their original paths.
-          cp -v gdextension-build/Godot/project-name/ext/pd_core.so Godot/project-name/ext/pd_core.so
-          cp -v gdextension-build/Godot/project-name/test_data/test.wad Godot/project-name/test_data/test.wad
-          mkdir -p godot-bin
-          cp -v gdextension-build/godot-bin/* godot-bin/
+          # download-artifact@v4 with path: . extracts files preserving their
+          # original directory structure, so the .so and test.wad land in
+          # place automatically. Just make the Godot binary executable.
           chmod +x godot-bin/*
           ls -la Godot/project-name/ext/pd_core.so Godot/project-name/test_data/test.wad godot-bin/
 
