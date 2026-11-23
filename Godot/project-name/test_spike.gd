@@ -9,7 +9,7 @@ extends SceneTree
 func _init() -> void:
 	# Defer to the next frame so the SceneTree is fully initialised
 	# before quit() is called — quit() from _init() may not terminate.
-	call_deferred(_run_tests)
+	_run_tests.call_deferred()
 
 func _run_tests() -> void:
 	# Use load() so the script works regardless of class_name registration
