@@ -38,3 +38,9 @@ __pycache__/
 keystore.properties
 *.jks
 *.keystore
+
+# GDExtension build artifacts (built by Godot/ext/build.sh and CI)
+Godot/ext/pd_core.so
+Godot/ext/pd_core.dylib
+Godot/ext/pd_core.dll
+Godot/project-name/test_data/

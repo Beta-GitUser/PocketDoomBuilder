@@ -1,0 +1,11 @@
+; PocketDoomBuilder — GDExtension spike manifest
+; Wraps the C++ WAD/map core as a Godot class "PDCore".
+
+[configuration]
+entry_symbol = "pd_core_extension_init"
+compatibility_minimum = "4.7"
+
+[libraries]
+linux.x86_64 = "pd_core.so"
+macos.universal = "pd_core.dylib"
+windows.x86_64 = "pd_core.dll"
