@@ -1,0 +1,128 @@
+name: Godot Android Build
+
+on:
+  push:
+    paths:
+      - 'Godot/**'
+      - '.github/workflows/godot-android-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    name: Build Godot Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
+      - name: Download Godot 4.7.2-stable (Linux x86_64)
+        run: |
+          GODOT_VERSION="4.7.2-stable"
+          mkdir -p godot-bin
+          curl -L "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.x86_64.zip" \
+            -o godot.zip
+          unzip -o godot.zip -d godot-bin
+          chmod +x godot-bin/*
+          ./godot-bin/Godot_v${GODOT_VERSION}_linux.x86_64 --version
+
+      - name: Download export templates
+        run: |
+          GODOT_VERSION="4.7.2-stable"
+          curl -L "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_export_templates.tpz" \
+            -o export_templates.tpz
+          ls -lh export_templates.tpz
+
+      - name: Extract export templates
+        run: |
+          export GODOT_USER_PATH=/tmp/godot_user
+          mkdir -p "$GODOT_USER_PATH/export_templates"
+          # Unzip the .tpz (it's a standard zip archive).
+          unzip -o export_templates.tpz -d /tmp/tpz_extract
+          # Find version.txt to get the template version.
+          VERSION_FILE=$(find /tmp/tpz_extract -name "version.txt" -type f | head -1)
+          echo "Found version.txt at: $VERSION_FILE"
+          TEMPLATE_VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
+          echo "Template version: $TEMPLATE_VERSION"
+          # Determine the source directory (parent of version.txt).
+          SRC_DIR=$(dirname "$VERSION_FILE")
+          # Copy all files (excluding __MACOSX) to the Godot templates dir.
+          mkdir -p "$GODOT_USER_PATH/export_templates/$TEMPLATE_VERSION"
+          cp -r "$SRC_DIR"/. "$GODOT_USER_PATH/export_templates/$TEMPLATE_VERSION/"
+          find "$GODOT_USER_PATH/export_templates/$TEMPLATE_VERSION" -type f | head -10
+          rm -rf /tmp/tpz_extract export_templates.tpz
+
+      - name: Set up Android SDK
+        run: |
+          export ANDROID_HOME=/opt/android-sdk
+          export ANDROID_SDK_ROOT=/opt/android-sdk
+          mkdir -p "$ANDROID_HOME/cmdline-tools"
+          # Download Android command-line tools.
+          curl -L "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip" \
+            -o /tmp/cmdline-tools.zip
+          unzip -o /tmp/cmdline-tools.zip -d /tmp/cmdline-tools-extract
+          mv /tmp/cmdline-tools-extract/cmdline-tools "$ANDROID_HOME/cmdline-tools/latest"
+          rm -rf /tmp/cmdline-tools-extract /tmp/cmdline-tools.zip
+          # Install required SDK components.
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null 2>&1 || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "platform-tools" \
+            "build-tools;36.0.0" \
+            "platforms;android-36" \
+            "ndk;29.0.14206865"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+
+      - name: Import Godot project
+        working-directory: Godot/project-name
+        env:
+          GODOT_USER_PATH: /tmp/godot_user
+        run: |
+          ../../godot-bin/Godot_v4.7.2-stable_linux.x86_64 \
+            --headless \
+            --import \
+            --path . 2>&1
+
+      - name: Export Android APK
+        working-directory: Godot/project-name
+        env:
+          GODOT_USER_PATH: /tmp/godot_user
+          ANDROID_HOME: /opt/android-sdk
+          ANDROID_SDK_ROOT: /opt/android-sdk
+        run: |
+          ../../godot-bin/Godot_v4.7.2-stable_linux.x86_64 \
+            --headless \
+            --export "Android" "PocketDoomBuilder.apk" \
+            --install-android-build-template \
+            --path . 2>&1
+          ls -lh PocketDoomBuilder.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-android-apk
+          path: Godot/project-name/PocketDoomBuilder.apk
+
+      - name: Update rolling release
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          # Find or create the android-latest release.
+          RELEASE=$(gh api repos/${{ github.repository }}/releases/tags/android-latest 2>/dev/null || true)
+          if [ -z "$RELEASE" ]; then
+            gh release create android-latest \
+              --title "PocketDoomBuilder (Godot Android build)" \
+              --latest \
+              Godot/project-name/PocketDoomBuilder.apk
+          else
+            gh release upload android-latest \
+              Godot/project-name/PocketDoomBuilder.apk \
+              --clobber
+          fi
