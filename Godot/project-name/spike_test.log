@@ -1,6 +1,0 @@
-Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
-
-SCRIPT ERROR: Parse Error: Invalid argument for "call_deferred()" function: argument 1 should be "StringName" but is "Callable".
-          at: GDScript::reload (res://test_spike.gd:12)
-ERROR: Failed to load script "res://test_spike.gd" with error "Parse error".
-   at: load (modules/gdscript/gdscript_resource_format.cpp:46)
