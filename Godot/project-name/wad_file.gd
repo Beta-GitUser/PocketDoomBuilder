@@ -14,7 +14,7 @@ extends RefCounted
 var type: String = ""
 
 ## Ordered lumps in the WAD.
-var lumps: Array[WadLump] = []
+var lumps: Array = []
 
 ## Original file path (for save_map to write back to the same file).
 var wad_path: String = ""
@@ -54,7 +54,7 @@ func list_maps() -> String:
 	for i in range(lumps.size()):
 		if i + 1 >= lumps.size():
 			continue
-		var next := lumps[i + 1].name
+		var next: String = lumps[i + 1].name
 		if next == "THINGS" or next == "TEXTMAP":
 			maps.append(lumps[i].name)
 	return ", ".join(maps)
@@ -83,7 +83,7 @@ func load_map(name: String) -> String:
 	for idx in indices:
 		if idx == header_idx:
 			continue
-		var n := lumps[idx].name
+		var n: String = lumps[idx].name
 		if n == "THINGS":
 			has_things = true
 		if n == "TEXTMAP":
@@ -165,7 +165,7 @@ func get_map_count() -> int:
 	for i in range(lumps.size()):
 		if i + 1 >= lumps.size():
 			continue
-		var next := lumps[i + 1].name
+		var next: String = lumps[i + 1].name
 		if next == "THINGS" or next == "TEXTMAP":
 			count += 1
 	return count
@@ -211,7 +211,7 @@ func _map_lump_indices(header_idx: int) -> Array:
 	result.append(header_idx)
 	var seen: Dictionary = {}
 	for i in range(header_idx + 1, lumps.size()):
-		var n := lumps[i].name
+		var n: String = lumps[i].name
 		if not _is_map_lump_name(n):
 			break
 		if seen.has(i):
@@ -429,7 +429,7 @@ func _serialize_map(map: MapNode) -> void:
 	# UDMF: lump_data already holds raw TEXTMAP bytes — nothing to do.
 
 func _serialize_map_doom(map: MapNode) -> void:
-	var header_idx := _find_header(map.map_name)
+	var header_idx: int = _find_header(map.map_name)
 	if header_idx == -1:
 		return
 	var indices := _map_lump_indices(header_idx)
@@ -440,7 +440,7 @@ func _serialize_map_doom(map: MapNode) -> void:
 	_put_lump(indices, "THINGS", _write_things_doom(map))
 
 func _serialize_map_hexen(map: MapNode) -> void:
-	var header_idx := _find_header(map.map_name)
+	var header_idx: int = _find_header(map.map_name)
 	if header_idx == -1:
 		return
 	var indices := _map_lump_indices(header_idx)
@@ -452,14 +452,14 @@ func _serialize_map_hexen(map: MapNode) -> void:
 
 ## Replace an existing map lump's data, or insert it after the header.
 func _put_lump(indices: Array, name: String, data: PackedByteArray) -> void:
-	var header_idx := indices[0]
+	var header_idx: int = indices[0]
 	# Update existing lump if found.
 	for idx in indices:
 		if idx != header_idx and lumps[idx].name == name:
 			lumps[idx].data = data
 			return
 	# Insert new lump after the last lump this map owns.
-	var insert_idx := header_idx + 1
+	var insert_idx: int = header_idx + 1
 	for idx in indices:
 		if idx != header_idx:
 			insert_idx = idx + 1
@@ -583,7 +583,10 @@ func _serialise_wad() -> PackedByteArray:
 		_write_lump_name(directory, lump.name)
 
 	var header := PackedByteArray()
-	header.append_array(type.utf8())  # "IWAD" or "PWAD" (4 bytes)
+	# "IWAD" or "PWAD" — convert to bytes manually (String.utf8() not
+	# available in Godot 4.7 GDScript).
+	for i in range(type.length()):
+		header.append(type[i].ord())
 	_write_u32(header, lumps.size())
 	_write_u32(header, 12 + file_data.size())
 
@@ -620,7 +623,12 @@ func _read_lump_name(b: PackedByteArray, off: int) -> String:
 	var nul := raw.find(0, 0)
 	if nul >= 0:
 		raw = raw.slice(0, nul)
-	return String.from_utf8(raw).to_upper()
+	# Convert bytes to String manually (String.from_utf8() not available
+	# in Godot 4.7 GDScript).
+	var s := ""
+	for byte in raw:
+		s += String.chr(byte)
+	return s.to_upper()
 
 func _write_u16(buf: PackedByteArray, v: int) -> void:
 	buf.append(v & 0xFF)
@@ -643,7 +651,11 @@ func _write_u32(buf: PackedByteArray, v: int) -> void:
 
 ## Write a lump name padded to 8 bytes, upper-case.
 func _write_lump_name(buf: PackedByteArray, name: String) -> void:
-	var bytes := name.to_upper().utf8()
+	var upper := name.to_upper()
+	# Convert to bytes manually (String.utf8() not available in Godot 4.7).
+	var bytes := PackedByteArray()
+	for i in range(upper.length()):
+		bytes.append(upper[i].ord())
 	for i in range(8):
 		var b := 0
 		if i < bytes.size():

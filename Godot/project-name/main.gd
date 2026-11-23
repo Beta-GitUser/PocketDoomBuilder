@@ -135,12 +135,17 @@ func _show_tab(index: int) -> void:
 		_tab_content.remove_child(child)
 		child.queue_free()
 
-	var content: Node = match _current_tab:
-		TAB_MAIN: _build_main_tab()
-		TAB_WAD_EXPLORER: _build_wad_explorer_tab()
-		TAB_MAPPING: _build_mapping_tab()
-		TAB_CODING: _build_coding_tab()
-		_: _build_main_tab()
+	var content: Node
+	if _current_tab == TAB_MAIN:
+		content = _build_main_tab()
+	elif _current_tab == TAB_WAD_EXPLORER:
+		content = _build_wad_explorer_tab()
+	elif _current_tab == TAB_MAPPING:
+		content = _build_mapping_tab()
+	elif _current_tab == TAB_CODING:
+		content = _build_coding_tab()
+	else:
+		content = _build_main_tab()
 
 	_tab_content.add_child(content)
 	_refresh_wad_status()
