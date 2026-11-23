@@ -1,0 +1,2 @@
+The Godot 3 --export option was changed to more explicit --export-release / --export-debug / --export-pack options.
+See the --help output for details.
