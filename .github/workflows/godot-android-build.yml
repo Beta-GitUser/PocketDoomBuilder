@@ -93,11 +93,24 @@ jobs:
             --import \
             --path . 2>&1
 
+      - name: Decode signing key
+        env:
+          PDB_KEYSTORE_BASE64: ${{ secrets.PDB_KEYSTORE_BASE64 }}
+          PDB_KEYSTORE_PASSWORD: ${{ secrets.PDB_KEYSTORE_PASSWORD }}
+          PDB_KEY_ALIAS: ${{ secrets.PDB_KEY_ALIAS }}
+          PDB_KEY_PASSWORD: ${{ secrets.PDB_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          python3 Android/tools/setup_signing.py 2>&1
+
       - name: Export Android APK
         working-directory: Godot/project-name
         env:
           ANDROID_HOME: /opt/android-sdk
           ANDROID_SDK_ROOT: /opt/android-sdk
+          ANDROID_KEYSTORE_DEBUG_PATH: ${{ runner.temp }}/pdb-release.jks
+          ANDROID_KEYSTORE_DEBUG_USER: ${{ secrets.PDB_KEY_ALIAS }}
+          ANDROID_KEYSTORE_DEBUG_PASS: ${{ secrets.PDB_KEY_PASSWORD }}
         run: |
           LOG=export_output.log
           ../../godot-bin/Godot_v4.7.2-stable_linux.x86_64 \

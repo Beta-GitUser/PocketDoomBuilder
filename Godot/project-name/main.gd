@@ -41,6 +41,11 @@ func _ready() -> void:
 	_build_root()
 	_show_tab(TAB_MAIN)
 
+func _draw() -> void:
+	# Fill the Control with a dark background so the screen is never the
+	# transparent clear colour (which would look like a gray screen).
+	draw_rect(Rect2(0, 0, size.x, size.y), Color(0.12, 0.12, 0.14))
+
 func _build_root() -> void:
 	var root_v = VBoxContainer
 	root_v.anchors_fill = true
